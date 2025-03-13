@@ -19,3 +19,23 @@ dev-start-gateway:
 
 dev-start-notifications-service:
 	cd ./notifications && go run main.go
+
+
+dc-start:
+	docker compose up --build
+
+dc-stop:
+	docker compose down
+
+dc-restart:
+	docker compose down
+	docker compose up --build
+
+dc-build:
+	docker compose build
+
+dc-build-gateway:
+	docker compose build gateway
+
+dc-build-notifications:
+	docker compose build notifications
