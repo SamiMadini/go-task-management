@@ -1,0 +1,62 @@
+package main
+
+import (
+	"time"
+)
+
+type GetTaskResponse struct {
+	TaskId string
+	Title string
+	Description string
+	Status string
+	Priority int
+	DueDate time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type CreateTaskRequest struct {
+	Title string `json:"title"`
+	Description string `json:"description"`
+	Status string `json:"status"`
+	Priority int `json:"priority"`
+	DueDate string `json:"due_date"`
+}
+
+type CreateTaskResponse struct {
+	TaskId string
+}
+
+type UpdateTaskRequest struct {
+	Title string `json:"title"`
+	Description string `json:"description"`
+	Status string `json:"status"`
+	Priority int `json:"priority"`
+	DueDate string `json:"due_date"`
+}	
+
+type UpdateTaskResponse struct {
+	TaskId string
+}
+
+type GetAllInAppNotificationsResponse struct {
+	InAppNotifications []InAppNotification
+}
+
+type InAppNotification struct {
+	ID string
+	Title string
+	Description string
+	IsRead bool
+	ReadAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type UpdateReadAtRequest struct {
+	ID string
+}
+
+type UpdateReadAtResponse struct {
+	Success bool
+}
