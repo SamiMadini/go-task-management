@@ -32,6 +32,8 @@ func NewHandler(
 }
 
 func (h *handler) registerRoutes(mux *http.ServeMux) {
+	log.Println("Registering routes")
+
 	mux.HandleFunc("GET /api/_health", h.health)
 
 	mux.HandleFunc("GET /api/tasks/{id}", h.GetTask)
@@ -42,6 +44,12 @@ func (h *handler) registerRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/notifications", h.GetAllInAppNotifications)
 	mux.HandleFunc("POST /api/notifications/{id}/read", h.UpdateReadAt)
+	mux.HandleFunc("DELETE /api/notifications/{id}", h.DeleteInAppNotification)
+}
+
+func (h *handler) health(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
@@ -56,11 +64,6 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	commons.WriteJSON(w, http.StatusOK, task)
 }
 
-func (h *handler) health(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
 // GetAllTasks godoc
 // @Summary Get all tasks
 // @Description Get all tasks from the database
@@ -70,17 +73,23 @@ func (h *handler) health(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {array} models.Task
 // @Router /tasks [get]
 func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
+	log.Println("GetAllTasks")
+
 	tasks, err := h.taskRepository.GetAll()
 	if err != nil {
+		log.Printf("Failed to get all tasks: %v", err)
 		commons.InternalServerErrorHandler(w)
 		return
 	}
+
+	log.Println("Tasks: ", tasks)
 
 	if len(tasks) == 0 {
 		commons.WriteJSON(w, http.StatusOK, []commons.Task{})
 		return
 	}
 
+	log.Println("Writing JSON")
 	commons.WriteJSON(w, http.StatusOK, tasks)
 }
 
@@ -96,7 +105,7 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println(params)
-
+	
 	paramsTask := commons.Task{
 		Title:       params.Title,
 		Description: params.Description,
@@ -200,6 +209,17 @@ func (h *handler) UpdateReadAt(w http.ResponseWriter, r *http.Request) {
 	log.Println("UpdateReadAt", id)
 
 	err := h.inAppNotificationRepository.UpdateReadAt(id)
+	if err != nil {
+		commons.InternalServerErrorHandler(w)
+	}
+
+	commons.WriteJSON(w, http.StatusOK, "OK")
+}
+
+func (h *handler) DeleteInAppNotification(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	err := h.inAppNotificationRepository.Delete(id)
 	if err != nil {
 		commons.InternalServerErrorHandler(w)
 	}

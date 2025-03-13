@@ -40,10 +40,10 @@ type UpdateTaskResponse struct {
 }
 
 type GetAllInAppNotificationsResponse struct {
-	InAppNotifications []InAppNotification
+	InAppNotifications []InAppNotificationResponse
 }
 
-type InAppNotification struct {
+type InAppNotificationResponse struct {
 	ID string
 	Title string
 	Description string

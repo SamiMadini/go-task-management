@@ -27,8 +27,8 @@ func main() {
 	}
 	defer dbConnection.Close()
 
-	taskRepository := commons.NewSQLiteTaskRepository(dbConnection)
-	inAppNotificationRepository := commons.NewSQLiteInAppNotificationRepository(dbConnection)
+	taskRepository := commons.NewPostgresTaskRepository(dbConnection)
+	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(dbConnection)
 
 	service := NewNotificationService(taskRepository, inAppNotificationRepository)
 	

@@ -1,6 +1,6 @@
 FROM golang:1.24-alpine
 
-# Install build dependencies for SQLite
+# We still need build tools for some dependencies
 RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
@@ -22,8 +22,8 @@ WORKDIR /app/gateway
 # Copy gateway source code
 COPY gateway/ ./
 
-# Build the application with CGO enabled
-RUN cd /app && CGO_ENABLED=1 go mod download && cd /app/gateway && CGO_ENABLED=1 go build -o gateway
+# Build the application
+RUN cd /app && go mod download && cd /app/gateway && go build -o gateway
 
 # Expose port
 EXPOSE 8080

@@ -34,8 +34,8 @@ func main() {
 
 	log.Printf("Connected to database")
 
-	taskRepository := commons.NewSQLiteTaskRepository(database)
-	inAppNotificationRepository := commons.NewSQLiteInAppNotificationRepository(database)
+	taskRepository := commons.NewPostgresTaskRepository(database)
+	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(database)
 
 	mux := http.NewServeMux()
 

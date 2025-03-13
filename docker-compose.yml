@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tasks
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
   gateway:
     build:
       context: .
@@ -6,13 +24,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DB_PATH=/app/tasks.db
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=tasks
+      - DB_SSLMODE=disable
       - HTTP_ADDRESS=0.0.0.0:8080
       - NOTIFICATION_SERVICE_ADDRESS=notifications:2000
-    volumes:
-      - ./tasks.db:/app/tasks.db
     depends_on:
-      - notifications
+      postgres:
+        condition: service_healthy
+      notifications:
+        condition: service_started
     networks:
       - app-network
 
@@ -23,12 +47,21 @@ services:
     ports:
       - "2000:2000"
     environment:
-      - DB_PATH=/app/tasks.db
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=tasks
+      - DB_SSLMODE=disable
       - NOTIFICATION_SERVICE_ADDRESS=0.0.0.0:2000
-    volumes:
-      - ./tasks.db:/app/tasks.db
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
+
+volumes:
+  postgres-data:
 
 networks:
   app-network:

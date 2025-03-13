@@ -22,6 +22,9 @@ dev-start-notifications-service:
 
 
 dc-start:
+	docker compose up
+
+dc-start-with-build:
 	docker compose up --build
 
 dc-stop:
@@ -29,7 +32,7 @@ dc-stop:
 
 dc-restart:
 	docker compose down
-	docker compose up --build
+	docker compose up
 
 dc-build:
 	docker compose build
@@ -39,3 +42,10 @@ dc-build-gateway:
 
 dc-build-notifications:
 	docker compose build notifications
+
+dc-reset-db:
+	docker volume rm go-task-management_postgres-data
+
+
+open-psql:
+	psql -h localhost -p 5433 -U postgres -d tasks

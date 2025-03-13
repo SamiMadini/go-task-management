@@ -8,27 +8,27 @@ import (
 	"github.com/google/uuid"
 )
 
-// @Description Task model
-type Task struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"` // "pending", "in-progress", "completed"
-	Priority    int       `json:"priority"`
-	EmailSent   bool      `json:"email_sent"`
-	InAppSent   bool      `json:"in_app_sent"`
-	DueDate     time.Time `json:"due_date"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
+// // @Description Task model
+// type Task struct {
+// 	ID          string    `json:"id"`
+// 	Title       string    `json:"title"`
+// 	Description string    `json:"description"`
+// 	Status      string    `json:"status"` // "pending", "in-progress", "completed"
+// 	Priority    int       `json:"priority"`
+// 	EmailSent   bool      `json:"email_sent"`
+// 	InAppSent   bool      `json:"in_app_sent"`
+// 	DueDate     time.Time `json:"due_date"`
+// 	CreatedAt   time.Time `json:"created_at"`
+// 	UpdatedAt   time.Time `json:"updated_at"`
+// }
 
-type TaskRepositoryInterface interface {
-	GetAll() ([]Task, error)
-	GetByID(id string) (Task, error)
-	Create(task Task) (Task, error)
-	Update(task Task) error
-	Delete(id string) error
-}
+// type TaskRepositoryInterface interface {
+// 	GetAll() ([]Task, error)
+// 	GetByID(id string) (Task, error)
+// 	Create(task Task) (Task, error)
+// 	Update(task Task) error
+// 	Delete(id string) error
+// }
 
 type SQLiteTaskRepository struct {
 	DB *sql.DB

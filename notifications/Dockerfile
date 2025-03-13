@@ -1,6 +1,6 @@
 FROM golang:1.24-alpine
 
-# Install build dependencies for SQLite
+# We still need build tools for some dependencies
 RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
@@ -22,8 +22,8 @@ WORKDIR /app/notifications
 # Copy notifications source code
 COPY notifications/ ./
 
-# Build the application with CGO enabled
-RUN cd /app && CGO_ENABLED=1 go mod download && cd /app/notifications && CGO_ENABLED=1 go build -o notifications
+# Build the application
+RUN cd /app && go mod download && cd /app/notifications && go build -o notifications
 
 # Expose port
 EXPOSE 2000
