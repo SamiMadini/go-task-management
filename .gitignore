@@ -32,3 +32,5 @@ tmp/
 
 # air live reload
 .air.toml
+
+.DS_Store

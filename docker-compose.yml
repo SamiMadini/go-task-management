@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: gateway/Dockerfile
     ports:
-      - "8080:8080"
+      - "3012:3012"
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -30,7 +30,7 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=tasks
       - DB_SSLMODE=disable
-      - HTTP_ADDRESS=0.0.0.0:8080
+      - HTTP_ADDRESS=0.0.0.0:3012
       - NOTIFICATION_SERVICE_ADDRESS=notifications:2000
     depends_on:
       postgres:

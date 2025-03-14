@@ -39,12 +39,40 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			allowedOrigins := []string{"http://localhost:3000", "http://localhost:3010"}
+			
+			for _, allowedOrigin := range allowedOrigins {
+				if origin == allowedOrigin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+
+			if w.Header().Get("Access-Control-Allow-Origin") == "" {
+				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+			}
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	handler := NewHandler(taskRepository, inAppNotificationRepository, notificationServiceClient)
 	handler.registerRoutes(mux)
 
 	log.Printf("Starting server on %s", httpAddress)
 
-	if err := http.ListenAndServe(httpAddress, mux); err != nil {
+	if err := http.ListenAndServe(httpAddress, corsMiddleware(mux)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
