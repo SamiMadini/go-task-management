@@ -1,7 +1,6 @@
 "use client"
 
-import { HelpCircle, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import { NotificationsComponent } from "@/app/_components/notifications/notifications.component"

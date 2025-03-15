@@ -11,22 +11,18 @@ import { GetOneNotificationInterface } from "@/app/domain/notification/interface
 import { NotificationCard } from "@/app/_components/notifications/notification-card.component"
 
 export function NotificationsComponent() {
-  const [loading, setLoading] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notifications, setNotifications] = useState<GetOneNotificationInterface[]>([])
 
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        setLoading(true)
         const response = await axiosInstance.get("/api/notifications")
         if (response.data) {
           setNotifications(response.data)
         }
       } catch (error) {
         console.error("Error fetching notifications:", error)
-      } finally {
-        setLoading(false)
       }
     }
 

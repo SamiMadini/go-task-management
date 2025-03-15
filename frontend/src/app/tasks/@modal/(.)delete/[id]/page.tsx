@@ -25,8 +25,8 @@ export default function TaskDeleteModalPage({ params }: Props) {
           if (undefined === resp) {
             throw new Error("No response")
           }
-        } catch (error: any) {
-          console.log(error?.response?.data)
+        } catch (error) {
+          console.log(error)
         }
       }}
     />

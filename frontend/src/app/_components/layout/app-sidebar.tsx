@@ -1,14 +1,12 @@
 "use client"
 
-import { Calendar, CheckSquare, Clock, Home, LayoutDashboard, ListTodo, PanelLeft, Settings } from "lucide-react"
-
+import { Home, LayoutDashboard, ListTodo, Settings } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,

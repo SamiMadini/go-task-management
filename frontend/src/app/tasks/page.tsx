@@ -14,6 +14,7 @@ async function getData(): Promise<{ tasks: GetOneTaskInterface[] }> {
       tasks: res.data,
     }
   } catch (error) {
+    console.error("Error fetching tasks:", error)
     return {
       tasks: [],
     }

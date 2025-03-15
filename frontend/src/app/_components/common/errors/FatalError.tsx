@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-export default function FatalError({ onClick }: { onClick: () => void }) {
+export default function FatalError() {
   return (
     <section className="flex h-screen w-full flex-col items-center justify-center bg-black">
       <h1 className="text-9xl font-extrabold tracking-widest text-white">500</h1>
