@@ -32,15 +32,17 @@ export function NotificationsComponent() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleReadNotification = async (notificationId: number) => {
+  const handleReadNotification = async (notificationId: number, isRead: boolean) => {
     try {
-      await axiosInstance.post(`/api/notifications/${notificationId}/read`)
+      await axiosInstance.post(`/api/notifications/${notificationId}/read`, {
+        isRead: isRead,
+      })
       setNotifications(
         notifications.map((notification) => {
           if (notification.id === notificationId) {
             return {
               ...notification,
-              is_read: true,
+              is_read: isRead,
             }
           }
           return notification
@@ -69,7 +71,10 @@ export function NotificationsComponent() {
         open={notificationOpen}
         setIsOpen={setNotificationOpen}
       >
-        <NotificationsTabsComponent notifications={notifications} onRead={handleReadNotification} />
+        <NotificationsTabsComponent
+          notifications={notifications}
+          onRead={(notificationId, isRead) => handleReadNotification(notificationId, isRead)}
+        />
       </SheetRight>
 
       {notifications.some((notification) => !notification.is_read) && (

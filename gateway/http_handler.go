@@ -43,7 +43,7 @@ func (h *handler) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/tasks/{id}", h.DeleteTask)
 
 	mux.HandleFunc("GET /api/notifications", h.GetAllInAppNotifications)
-	mux.HandleFunc("POST /api/notifications/{id}/read", h.UpdateReadAt)
+	mux.HandleFunc("POST /api/notifications/{id}/read", h.UpdateOnRead)
 	mux.HandleFunc("DELETE /api/notifications/{id}", h.DeleteInAppNotification)
 }
 
@@ -203,12 +203,22 @@ func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Reques
 	commons.WriteJSON(w, http.StatusOK, inAppNotifications)
 }
 
-func (h *handler) UpdateReadAt(w http.ResponseWriter, r *http.Request) {
+func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	log.Println("UpdateReadAt", id)
+	log.Println("UpdateOnRead", id)
 
-	err := h.inAppNotificationRepository.UpdateReadAt(id)
+	var params UpdateOnReadRequest
+	err := commons.ReadJSON(r, &params)
+
+	if err != nil {
+		commons.InternalServerErrorHandler(w)
+		return
+	}
+
+	log.Println(params)
+
+	err = h.inAppNotificationRepository.UpdateOnRead(id, params.IsRead)
 	if err != nil {
 		commons.InternalServerErrorHandler(w)
 	}

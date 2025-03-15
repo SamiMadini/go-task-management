@@ -118,7 +118,7 @@ func (r *SQLiteTaskRepository) Create(task Task) (Task, error) {
 	now := time.Now()
 	task.CreatedAt = now
 	task.UpdatedAt = now
-	
+
 	_, err := r.DB.Exec(`
 		INSERT INTO tasks (id, title, description, status, priority, email_sent, in_app_sent, due_date, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -138,7 +138,7 @@ func (r *SQLiteTaskRepository) Create(task Task) (Task, error) {
 	if err != nil {
 		return Task{}, err
 	}
-	
+
 	return task, nil
 }
 

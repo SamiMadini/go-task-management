@@ -23,7 +23,7 @@ import (
 // 	GetAll() ([]InAppNotification, error)
 // 	GetByID(id string) (InAppNotification, error)
 // 	Create(inAppNotification InAppNotification) (InAppNotification, error)
-// 	UpdateReadAt(id string) error
+// 	UpdateOnRead(id string, isRead bool) error
 // 	Update(inAppNotification InAppNotification) error
 // 	Delete(id string) error
 // }
@@ -108,7 +108,7 @@ func (r *SQLiteInAppNotificationRepository) Create(inAppNotification InAppNotifi
 	now := time.Now()
 	inAppNotification.CreatedAt = now
 	inAppNotification.UpdatedAt = now
-	
+
 	_, err := r.DB.Exec(`
 		INSERT INTO in_app_notifications (id, title, description, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?)
@@ -123,21 +123,30 @@ func (r *SQLiteInAppNotificationRepository) Create(inAppNotification InAppNotifi
 	if err != nil {
 		return InAppNotification{}, err
 	}
-	
+
 	return inAppNotification, nil
 }
 
-func (r *SQLiteInAppNotificationRepository) UpdateReadAt(id string) error {
+func (r *SQLiteInAppNotificationRepository) UpdateOnRead(id string, isRead bool	) error {
+	now := time.Now()
+
+	var readAt *time.Time
+	if isRead {
+		readAt = &now
+	} else {
+		readAt = nil
+	}
+
 	_, err := r.DB.Exec(`
 		UPDATE in_app_notifications 
 		SET read_at = ?, updated_at = ?
 		WHERE id = ?
 	`,
-		time.Now().Format(time.RFC3339),
-		time.Now().Format(time.RFC3339),
+		readAt,
+		now,
 		id,
 	)
-	log.Println("InAppNotification READ AT updated successfully")
+	log.Println("InAppNotification updated ON READ successfully")
 	return err
 }
 

@@ -53,10 +53,10 @@ type InAppNotificationResponse struct {
 	UpdatedAt time.Time
 }
 
-type UpdateReadAtRequest struct {
-	ID string
+type UpdateOnReadRequest struct {
+	IsRead bool
 }
 
-type UpdateReadAtResponse struct {
+type UpdateOnReadResponse struct {
 	Success bool
 }

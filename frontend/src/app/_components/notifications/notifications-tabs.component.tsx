@@ -9,7 +9,7 @@ export function NotificationsTabsComponent({
   onRead,
 }: {
   notifications: GetOneNotificationInterface[]
-  onRead: (notificationId: number) => void
+  onRead: (notificationId: number, isRead: boolean) => void
 }) {
   return (
     <>
@@ -23,7 +23,10 @@ export function NotificationsTabsComponent({
           <div className="mt-2">
             <TabsContent value="unread">
               {notifications.filter((notification) => !notification.is_read).length > 0 ? (
-                <NotificationCard notifications={notifications.filter((notification) => !notification.is_read)} onRead={onRead} />
+                <NotificationCard
+                  notifications={notifications.filter((notification) => !notification.is_read)}
+                  onRead={(notificationId, isRead) => onRead(notificationId, isRead)}
+                />
               ) : (
                 <p className="text-center text-muted-foreground py-4">No unread notifications</p>
               )}
@@ -31,7 +34,10 @@ export function NotificationsTabsComponent({
 
             <TabsContent value="read">
               {notifications.filter((notification) => notification.is_read).length > 0 ? (
-                <NotificationCard notifications={notifications.filter((notification) => notification.is_read)} onRead={onRead} />
+                <NotificationCard
+                  notifications={notifications.filter((notification) => notification.is_read)}
+                  onRead={(notificationId, isRead) => onRead(notificationId, isRead)}
+                />
               ) : (
                 <p className="text-center text-muted-foreground py-4">No read notifications</p>
               )}

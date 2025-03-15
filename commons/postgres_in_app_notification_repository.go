@@ -23,7 +23,7 @@ type InAppNotificationRepositoryInterface interface {
 	GetAll() ([]InAppNotification, error)
 	GetByID(id string) (InAppNotification, error)
 	Create(inAppNotification InAppNotification) (InAppNotification, error)
-	UpdateReadAt(id string) error
+	UpdateOnRead(id string, isRead bool) error
 	Update(inAppNotification InAppNotification) error
 	Delete(id string) error
 }
@@ -110,7 +110,7 @@ func (r *PostgresInAppNotificationRepository) Create(inAppNotification InAppNoti
 	now := time.Now()
 	inAppNotification.CreatedAt = now
 	inAppNotification.UpdatedAt = now
-	
+
 	_, err := r.DB.Exec(`
 		INSERT INTO in_app_notifications (id, title, description, is_read, read_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -131,19 +131,27 @@ func (r *PostgresInAppNotificationRepository) Create(inAppNotification InAppNoti
 	return inAppNotification, nil
 }
 
-func (r *PostgresInAppNotificationRepository) UpdateReadAt(id string) error {
+func (r *PostgresInAppNotificationRepository) UpdateOnRead(id string, isRead bool) error {
 	now := time.Now()
-	
+
+	var readAt *time.Time
+	if isRead {
+		readAt = &now
+	} else {
+		readAt = nil
+	}
+
 	_, err := r.DB.Exec(`
 		UPDATE in_app_notifications 
-		SET is_read = true, read_at = $1, updated_at = $2
-		WHERE id = $3
+		SET is_read = $1, read_at = $2, updated_at = $3
+		WHERE id = $4
 	`,
-		now,
+		isRead,
+		readAt,
 		now,
 		id,
 	)
-	log.Println("InAppNotification READ AT updated successfully")
+	log.Println("InAppNotification updated ON READ successfully")
 	return err
 }
 
