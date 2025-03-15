@@ -31,7 +31,7 @@ export default async function TaskEditSheetPage({ params }: Props) {
   }
 
   return (
-    <SheetRight title="Edit a Task" description="Fill all fields to edit the task" overlay={true} isModal={true} open={true}>
+    <SheetRight title="Edit a Task" description="Fill all fields to edit the task" overlay={false} isModal={true} open={true}>
       <div className="mt-8">
         <TaskForm
           initialData={{

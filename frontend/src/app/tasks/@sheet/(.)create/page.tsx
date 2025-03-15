@@ -9,7 +9,7 @@ export default function TaskCreateSheetPage() {
   const router = useRouter()
 
   return (
-    <SheetRight title="Create a Task" description="Fill all fields to create the task" overlay={true} isModal={true} open={true}>
+    <SheetRight title="Create a Task" description="Fill all fields to create the task" overlay={false} isModal={true} open={true}>
       <div className="mt-8">
         <TaskForm
           onSubmit={async (data) => {
