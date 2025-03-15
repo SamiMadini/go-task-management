@@ -50,6 +50,8 @@ export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
               <h3 className="font-medium">{task.title}</h3>
             </div>
 
+            <p className="text-sm text-muted-foreground">{task.description}</p>
+
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <Badge variant={task.status === TaskStatus.DONE ? "outline" : "secondary"}>{renderStatus(task.status)}</Badge>
               <Badge
