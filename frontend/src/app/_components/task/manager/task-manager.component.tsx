@@ -2,7 +2,7 @@
 
 import TaskManagerLeftColumnComponent from "@/app/_components/task/manager/task-manager-left-column.component"
 import TaskManagerRightColumnComponent from "@/app/_components/task/manager/task-manager-right-column.component"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 
 export default function TaskManagerComponent({ tasks }: { tasks: GetOneTaskInterface[] }) {
   return (

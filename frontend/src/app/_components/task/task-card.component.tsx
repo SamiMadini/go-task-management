@@ -5,9 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { CalendarIcon, CheckCircle2, CircleAlert, Clock, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
-import { TaskPriorityLabel, TaskStatus, TaskStatusLabel } from "@/app/tasks/domain/enums.task"
-import { TaskPriority } from "@/app/tasks/domain/enums.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
+import { TaskPriority, TaskPriorityLabel, TaskStatus, TaskStatusLabel } from "@/app/domain/task/enums.task"
 
 export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
   const renderPriority = (priority: number) => {

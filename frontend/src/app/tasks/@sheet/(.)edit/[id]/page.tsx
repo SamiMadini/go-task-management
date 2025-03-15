@@ -2,7 +2,7 @@
 
 import { SheetRight } from "@/app/_components/common/sheet-right"
 import { TaskForm } from "@/app/_components/task/forms/task-form"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 import { axiosInstance } from "@/lib/http/axios"
 import { useRouter } from "next/navigation"
 

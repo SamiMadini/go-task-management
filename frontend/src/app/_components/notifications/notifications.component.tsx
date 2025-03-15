@@ -1,26 +1,19 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, CheckCircle2, CheckIcon } from "lucide-react"
+import { Bell } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { axiosInstance } from "@/lib/http/axios"
 import { SheetRight } from "@/app/_components/common/sheet-right"
-
-interface Notification {
-  id: number
-  title: string
-  description: string
-  is_read: boolean
-  created_at: string
-  updated_at: string
-}
+import { GetOneNotificationInterface } from "@/app/domain/notification/interfaces.notification"
+import { NotificationCard } from "@/app/_components/notifications/notification-card.component"
 
 export function NotificationsComponent() {
   const [loading, setLoading] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<GetOneNotificationInterface[]>([])
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -44,45 +37,23 @@ export function NotificationsComponent() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleNotificationRead = async (notificationId: number) => {
+  const handleReadNotification = async (notificationId: number) => {
     try {
       await axiosInstance.post(`/api/notifications/${notificationId}/read`)
-      setNotifications(notifications.filter((notification) => notification.id !== notificationId))
+      setNotifications(
+        notifications.map((notification) => {
+          if (notification.id === notificationId) {
+            return {
+              ...notification,
+              is_read: true,
+            }
+          }
+          return notification
+        })
+      )
     } catch (error) {
       console.error("Error reading notification:", error)
-    } finally {
-      setNotifications(notifications.filter((notification) => notification.id !== notificationId))
     }
-  }
-
-  const renderNotifications = (filteredNotifications: Notification[]) => {
-    return (
-      <div className="mt-6 space-y-6">
-        {filteredNotifications.map((notification) => (
-          <div key={notification.id} className="rounded-lg border p-4 relative">
-            {!notification.is_read && <span className="absolute -top-1 -left-1 h-3 w-3 rounded-full bg-red-500 animate-pulse" />}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">{notification.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(notification.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                </p>
-                <p className="text-sm text-muted-foreground">{notification.description}</p>
-              </div>
-              <div className="mt-2 flex justify-end">
-                {false === notification.is_read ? (
-                  <Button variant="outline" size="sm" onClick={() => handleNotificationRead(notification.id)}>
-                    <CheckIcon className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <CheckCircle2 className="h-6 w-6 mr-2 text-green-600" />
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
   }
 
   return (
@@ -114,10 +85,10 @@ export function NotificationsComponent() {
               <div className="mt-2">
                 <TabsContent value="unread">
                   {notifications.filter((notification) => !notification.is_read).length > 0 ? (
-                    renderNotifications([
-                      ...notifications.filter((notification) => !notification.is_read),
-                      ...notifications.filter((notification) => !notification.is_read),
-                    ])
+                    <NotificationCard
+                      notifications={notifications.filter((notification) => !notification.is_read)}
+                      onRead={handleReadNotification}
+                    />
                   ) : (
                     <p className="text-center text-muted-foreground py-4">No unread notifications</p>
                   )}
@@ -125,7 +96,10 @@ export function NotificationsComponent() {
 
                 <TabsContent value="read">
                   {notifications.filter((notification) => notification.is_read).length > 0 ? (
-                    renderNotifications(notifications.filter((notification) => notification.is_read))
+                    <NotificationCard
+                      notifications={notifications.filter((notification) => notification.is_read)}
+                      onRead={handleReadNotification}
+                    />
                   ) : (
                     <p className="text-center text-muted-foreground py-4">No read notifications</p>
                   )}

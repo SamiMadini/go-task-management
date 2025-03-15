@@ -1,4 +1,4 @@
-import { TaskStatus, TaskPriority } from "@/app/tasks/domain/enums.task"
+import { TaskPriority, TaskStatus } from "@/app/domain/task/enums.task"
 
 export interface GetOneTaskInterface {
   id: string

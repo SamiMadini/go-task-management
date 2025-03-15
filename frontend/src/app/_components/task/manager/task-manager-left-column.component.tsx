@@ -7,8 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useState } from "react"
 import TaskListComponent from "@/app/_components/task/task-list.component"
 import Link from "next/link"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
-
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 export default function TaskManagerLeftColumnComponent({ tasks }: { tasks: GetOneTaskInterface[] }) {
   const [activeTab, setActiveTab] = useState("all")
 

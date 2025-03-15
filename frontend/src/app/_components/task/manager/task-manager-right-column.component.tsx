@@ -1,9 +1,9 @@
 "use client"
 
-import { CalendarIcon, Filter, Plus, Search } from "lucide-react"
+import { CalendarIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 
 export default function TaskManagerRightColumnComponent({ tasks }: { tasks: GetOneTaskInterface[] }) {
   return (

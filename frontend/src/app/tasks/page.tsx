@@ -1,6 +1,6 @@
 import { axiosInstance } from "@/lib/http/axios"
 import TaskManagerComponent from "@/app/_components/task/manager/task-manager.component"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 
 async function getData(): Promise<{ tasks: GetOneTaskInterface[] }> {
   try {

@@ -16,8 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { TaskPriority, TaskPriorityLabel, TaskStatusLabel } from "@/app/tasks/domain/enums.task"
-import { TaskStatus } from "@/app/tasks/domain/enums.task"
+import { TaskPriority, TaskPriorityLabel, TaskStatus, TaskStatusLabel } from "@/app/domain/task/enums.task"
 
 const taskFormSchema = z.object({
   title: z

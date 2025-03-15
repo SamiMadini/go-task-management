@@ -1,7 +1,7 @@
 "use client"
 
 import TaskCard from "@/app/_components/task/task-card.component"
-import { GetOneTaskInterface } from "@/app/tasks/domain/interfaces.task"
+import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 
 export default function TaskListComponent({ tasks }: { tasks: GetOneTaskInterface[] }) {
   if (tasks.length === 0) {
