@@ -53,6 +53,15 @@ export function NotificationsComponent() {
     }
   }
 
+  const handleDeleteNotification = async (notificationId: number) => {
+    try {
+      await axiosInstance.delete(`/api/notifications/${notificationId}`)
+      setNotifications(notifications.filter((notification) => notification.id !== notificationId))
+    } catch (error) {
+      console.error("Error deleting notification:", error)
+    }
+  }
+
   return (
     <>
       <Button variant="ghost" size="icon" className="text-muted-foreground relative" onClick={() => setNotificationOpen(true)}>
@@ -74,6 +83,7 @@ export function NotificationsComponent() {
         <NotificationsTabsComponent
           notifications={notifications}
           onRead={(notificationId, isRead) => handleReadNotification(notificationId, isRead)}
+          onDelete={(notificationId) => handleDeleteNotification(notificationId)}
         />
       </SheetRight>
 

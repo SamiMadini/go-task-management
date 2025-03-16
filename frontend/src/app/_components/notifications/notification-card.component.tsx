@@ -8,9 +8,11 @@ import { BellDot, CheckCircle2, CheckIcon, MoreVertical, Trash2 } from "lucide-r
 export function NotificationCard({
   notifications,
   onRead,
+  onDelete,
 }: {
   notifications: GetOneNotificationInterface[]
   onRead: (id: number, isRead: boolean) => void
+  onDelete: (id: number) => void
 }) {
   const renderSubMenu = (notification: GetOneNotificationInterface) => {
     return (
@@ -26,7 +28,7 @@ export function NotificationCard({
             </div>
           )}
 
-          <div className="flex items-center gap-2 cursor-pointer text-red-700">
+          <div className="flex items-center gap-2 cursor-pointer text-red-700" onClick={() => onDelete(notification.id)}>
             <Trash2 className="h-5 w-5" /> Remove
           </div>
         </PopoverContent>

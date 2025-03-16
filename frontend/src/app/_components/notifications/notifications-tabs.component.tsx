@@ -7,9 +7,11 @@ import { GetOneNotificationInterface } from "@/app/domain/notification/interface
 export function NotificationsTabsComponent({
   notifications,
   onRead,
+  onDelete,
 }: {
   notifications: GetOneNotificationInterface[]
   onRead: (notificationId: number, isRead: boolean) => void
+  onDelete: (notificationId: number) => void
 }) {
   return (
     <>
@@ -26,6 +28,7 @@ export function NotificationsTabsComponent({
                 <NotificationCard
                   notifications={notifications.filter((notification) => !notification.is_read)}
                   onRead={(notificationId, isRead) => onRead(notificationId, isRead)}
+                  onDelete={(notificationId) => onDelete(notificationId)}
                 />
               ) : (
                 <p className="text-center text-muted-foreground py-4">No unread notifications</p>
@@ -37,6 +40,7 @@ export function NotificationsTabsComponent({
                 <NotificationCard
                   notifications={notifications.filter((notification) => notification.is_read)}
                   onRead={(notificationId, isRead) => onRead(notificationId, isRead)}
+                  onDelete={(notificationId) => onDelete(notificationId)}
                 />
               ) : (
                 <p className="text-center text-muted-foreground py-4">No read notifications</p>
