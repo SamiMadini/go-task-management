@@ -45,6 +45,8 @@ func InitDB() (*sql.DB, error) {
 		email_sent BOOLEAN NOT NULL DEFAULT FALSE,
 		in_app_sent BOOLEAN NOT NULL DEFAULT FALSE,
 		due_date TIMESTAMP,
+		deleted BOOLEAN NOT NULL DEFAULT FALSE,
+		deleted_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL
 	)
@@ -62,12 +64,36 @@ func InitDB() (*sql.DB, error) {
 		description TEXT,
 		is_read BOOLEAN NOT NULL DEFAULT FALSE,
 		read_at TIMESTAMP,
+		deleted BOOLEAN NOT NULL DEFAULT FALSE,
+		deleted_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL
 	)
 	`)
 	if err != nil {
 		log.Printf("Error creating in_app_notifications table: %v", err)
+		return nil, err
+	}
+
+	// Create task_system_events table
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS task_system_events (
+		id TEXT PRIMARY KEY,
+		task_id TEXT NOT NULL,
+		correlation_id TEXT NOT NULL,
+		origin TEXT NOT NULL,
+		action TEXT NOT NULL,	
+		message TEXT NOT NULL,
+		json_data TEXT,
+		emit_at TIMESTAMP NOT NULL,
+		created_at TIMESTAMP NOT NULL
+	,
+	CONSTRAINT fk_task_system_events_task FOREIGN KEY (task_id) 
+		REFERENCES tasks(id) ON DELETE CASCADE
+	)
+	`)
+	if err != nil {
+		log.Printf("Error creating task_system_events table: %v", err)
 		return nil, err
 	}
 

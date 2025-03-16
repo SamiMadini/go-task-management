@@ -8,8 +8,21 @@ import { useState } from "react"
 import TaskListComponent from "@/app/_components/task/task-list.component"
 import Link from "next/link"
 import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
-export default function TaskManagerLeftColumnComponent({ tasks }: { tasks: GetOneTaskInterface[] }) {
+import { getPriorityLabel } from "@/app/_components/task/task-helper"
+
+export default function TaskManagerLeftColumnComponent({
+  tasks,
+  selectedTaskId,
+  setSelectedTaskId,
+  handleShowEvents,
+}: {
+  tasks: GetOneTaskInterface[]
+  selectedTaskId: string
+  setSelectedTaskId: (taskId: string) => void
+  handleShowEvents: (taskId: string) => void
+}) {
   const [activeTab, setActiveTab] = useState("all")
+  const [searchTerm, setSearchTerm] = useState("")
 
   const filteredTasks =
     activeTab === "all"
@@ -21,18 +34,26 @@ export default function TaskManagerLeftColumnComponent({ tasks }: { tasks: GetOn
           return true
         })
 
+  const searchFilteredTasks = searchTerm
+    ? filteredTasks.filter((task) => {
+        const searchLower = searchTerm.toLowerCase()
+        return (
+          (task.title && task.title.toLowerCase().includes(searchLower)) ||
+          (task.description && task.description.toLowerCase().includes(searchLower)) ||
+          (task.status && task.status.toLowerCase().includes(searchLower)) ||
+          (task.priority && getPriorityLabel(task.priority).toLowerCase().includes(searchLower))
+        )
+      })
+    : filteredTasks
+
   return (
-    <div className="lg:col-span-2">
+    <div className="">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
           <p className="text-muted-foreground">Manage and track your tasks</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button size="sm" variant="outline">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button> */}
           <Link href={`/tasks/create`}>
             <Button size="sm">
               <Plus className="h-4 w-4" />
@@ -45,7 +66,13 @@ export default function TaskManagerLeftColumnComponent({ tasks }: { tasks: GetOn
       <div className="mb-6 flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input type="search" placeholder="Search tasks..." className="w-full pl-8" />
+          <Input
+            type="search"
+            placeholder="Search tasks..."
+            className="w-full pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
@@ -62,7 +89,7 @@ export default function TaskManagerLeftColumnComponent({ tasks }: { tasks: GetOn
         <TabsContent value="done" className="mt-0" />
       </Tabs>
 
-      <TaskListComponent tasks={filteredTasks} />
+      <TaskListComponent tasks={searchFilteredTasks} selectedTaskId={selectedTaskId} onShowEvents={handleShowEvents} />
     </div>
   )
 }

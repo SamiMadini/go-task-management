@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 
@@ -28,13 +27,14 @@ func main() {
 	defer dbConnection.Close()
 
 	taskRepository := commons.NewPostgresTaskRepository(dbConnection)
+	taskSystemEventRepository := commons.NewPostgresTaskSystemEventRepository(dbConnection)
 	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(dbConnection)
 
-	service := NewNotificationService(taskRepository, inAppNotificationRepository)
+	service := NewNotificationService(taskRepository, taskSystemEventRepository, inAppNotificationRepository)
 	
 	NewGrpcHandler(grpcServer, service)
 
-	fmt.Println("Notifications service started at", grpcServerAddr)
+	log.Println("Notifications service started at", grpcServerAddr)
 
 	if err := grpcServer.Serve(l); err != nil {
 		log.Fatalf("Failed to serve: %v", err)

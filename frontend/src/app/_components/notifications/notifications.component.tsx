@@ -30,7 +30,7 @@ export function NotificationsComponent() {
     }, 5000)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [notifications])
 
   const handleReadNotification = async (notificationId: number, isRead: boolean) => {
     try {
@@ -87,12 +87,12 @@ export function NotificationsComponent() {
         />
       </SheetRight>
 
-      {notifications.some((notification) => !notification.is_read) && (
+      {/* {notifications.some((notification) => !notification.is_read) && (
         <div className="fixed top-20 right-6 items-center justify-center flex flex-col transition-all ease-in-out animate-in fade-in duration-1000 fill-mode-forwards">
+          <p className="pb-5 text-foreground animate-pulse text-red-500 font-bold">New notifications</p>
           <img src="/arrow-rough-drawig-top-right.png" alt="New notifications" className="w-20 h-20 -rotate-45" />
-          <p className="pt-5 text-foreground animate-pulse text-red-500 font-bold">New notifications</p>
         </div>
-      )}
+      )} */}
     </>
   )
 }

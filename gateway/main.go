@@ -36,6 +36,7 @@ func main() {
 
 	taskRepository := commons.NewPostgresTaskRepository(database)
 	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(database)
+	taskSystemEventRepository := commons.NewPostgresTaskSystemEventRepository(database)
 
 	mux := http.NewServeMux()
 
@@ -67,7 +68,7 @@ func main() {
 		})
 	}
 
-	handler := NewHandler(taskRepository, inAppNotificationRepository, notificationServiceClient)
+	handler := NewHandler(taskRepository, inAppNotificationRepository, taskSystemEventRepository, notificationServiceClient)
 	handler.registerRoutes(mux)
 
 	log.Printf("Starting server on %s", httpAddress)

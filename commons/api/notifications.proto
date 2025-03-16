@@ -11,11 +11,13 @@ service NotificationService {
 enum NotificationType {
     IN_APP = 0;
     EMAIL = 1;
+    SMS = 2;
 }
 
 message SendNotificationRequest {
     string taskId = 1;
-    repeated NotificationType types = 2;
+    string correlationId = 2;
+    repeated NotificationType types = 3;
 }
 
 message SendNotificationResponse {

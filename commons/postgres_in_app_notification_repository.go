@@ -15,6 +15,8 @@ type InAppNotification struct {
 	Description string    `json:"description"`
 	IsRead      bool      `json:"is_read"`
 	ReadAt      *time.Time `json:"read_at,omitempty"`
+	Deleted     bool      `json:"deleted"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -26,6 +28,7 @@ type InAppNotificationRepositoryInterface interface {
 	UpdateOnRead(id string, isRead bool) error
 	Update(inAppNotification InAppNotification) error
 	Delete(id string) error
+	HardDelete(id string) error
 }
 
 type PostgresInAppNotificationRepository struct {
@@ -38,7 +41,7 @@ func NewPostgresInAppNotificationRepository(db *sql.DB) *PostgresInAppNotificati
 
 func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, error) {
 	rows, err := r.DB.Query(`
-		SELECT id, title, description, is_read, read_at, created_at, updated_at
+		SELECT id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
 		FROM in_app_notifications
 	`)
 	if err != nil {
@@ -59,6 +62,8 @@ func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, err
 			&readAt,
 			&inAppNotification.CreatedAt,
 			&inAppNotification.UpdatedAt,
+			&inAppNotification.Deleted,
+			&inAppNotification.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -79,7 +84,7 @@ func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotificat
 	var readAt sql.NullTime
 	
 	err := r.DB.QueryRow(`
-		SELECT id, title, description, is_read, read_at, created_at, updated_at
+		SELECT id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
 		FROM in_app_notifications WHERE id = $1
 	`, id).Scan(
 		&inAppNotification.ID,
@@ -89,6 +94,8 @@ func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotificat
 		&readAt,
 		&inAppNotification.CreatedAt,
 		&inAppNotification.UpdatedAt,
+		&inAppNotification.Deleted,
+		&inAppNotification.DeletedAt,
 	)
 	
 	if err != nil {
@@ -175,6 +182,21 @@ func (r *PostgresInAppNotificationRepository) Update(inAppNotification InAppNoti
 }
 
 func (r *PostgresInAppNotificationRepository) Delete(id string) error {
+	_, err := r.DB.Exec(`
+		UPDATE in_app_notifications 
+		SET deleted = $1, deleted_at = $2, updated_at = $3 
+		WHERE id = $4
+	`,
+		true,
+		time.Now(),
+		time.Now(),
+		id,
+	)
+	log.Println("InAppNotification soft deleted successfully")
+	return err
+}
+
+func (r *PostgresInAppNotificationRepository) HardDelete(id string) error {
 	_, err := r.DB.Exec("DELETE FROM in_app_notifications WHERE id = $1", id)
 	return err
-} 
+}

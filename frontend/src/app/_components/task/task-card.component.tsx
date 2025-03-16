@@ -2,40 +2,25 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { CalendarIcon, CheckCircle2, CircleAlert, Clock, Pencil, Trash2 } from "lucide-react"
+import { CalendarIcon, CheckCircle2, CircleAlert, Clock, Pencil, Trash2, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
-import { TaskPriority, TaskPriorityLabel, TaskStatus, TaskStatusLabel } from "@/app/domain/task/enums.task"
+import { TaskPriority, TaskStatus } from "@/app/domain/task/enums.task"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { getPriorityLabel, getStatusLabel } from "@/app/_components/task/task-helper"
 
-export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
-  const renderPriority = (priority: number) => {
-    switch (priority) {
-      case TaskPriority.HIGH:
-        return TaskPriorityLabel.HIGH
-      case TaskPriority.MEDIUM:
-        return TaskPriorityLabel.MEDIUM
-      case TaskPriority.LOW:
-        return TaskPriorityLabel.LOW
-      default:
-        return TaskPriorityLabel.MEDIUM
-    }
-  }
-
-  const renderStatus = (status: TaskStatus) => {
-    switch (status) {
-      case TaskStatus.DONE:
-        return TaskStatusLabel.DONE
-      case TaskStatus.IN_PROGRESS:
-        return TaskStatusLabel.IN_PROGRESS
-      case TaskStatus.TODO:
-        return TaskStatusLabel.TODO
-      default:
-        return TaskStatusLabel.TODO
-    }
-  }
+export default function TaskCard({
+  task,
+  isSelected,
+  onShowEvents,
+}: {
+  task: GetOneTaskInterface
+  isSelected: boolean
+  onShowEvents: (taskId: string) => void
+}) {
   return (
-    <Card>
+    <Card className={isSelected ? "ring-2 ring-primary/50" : ""}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-3">
@@ -53,7 +38,7 @@ export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
             <p className="text-sm text-muted-foreground">{task.description}</p>
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <Badge variant={task.status === TaskStatus.DONE ? "outline" : "secondary"}>{renderStatus(task.status)}</Badge>
+              <Badge variant={task.status === TaskStatus.DONE ? "outline" : "secondary"}>{getStatusLabel(task.status)}</Badge>
               <Badge
                 variant="outline"
                 className={
@@ -64,7 +49,7 @@ export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
                     : "border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
                 }
               >
-                {renderPriority(task.priority)} Priority
+                {getPriorityLabel(task.priority)} Priority
               </Badge>
 
               <div className="flex items-center gap-1">
@@ -75,6 +60,19 @@ export default function TaskCard({ task }: { task: GetOneTaskInterface }) {
           </div>
 
           <div className="flex gap-3 self-start">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant={"outline"} disabled={isSelected} size="sm" onClick={() => onShowEvents(task.id)}>
+                    <Eye className="h-4 w-4" /> Events
+                    <span className="sr-only">Show Events</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Show Events</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Link href={`/tasks/edit/${task.id}`}>
               <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Edit task">
                 <Pencil className="h-4 w-4" />
