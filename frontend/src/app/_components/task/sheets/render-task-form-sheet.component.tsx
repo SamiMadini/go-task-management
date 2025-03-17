@@ -22,7 +22,6 @@ export default function RenderTaskFormSheet({
   isModal: boolean
   open: boolean
 }) {
-  console.log("RenderTaskFormSheet")
   const router = useRouter()
 
   return (
@@ -41,7 +40,6 @@ export default function RenderTaskFormSheet({
               : undefined
           }
           onSubmit={async (data) => {
-            console.log(data)
             try {
               let response: AxiosResponse<GetOneTaskInterface> | null = null
               if (task) {

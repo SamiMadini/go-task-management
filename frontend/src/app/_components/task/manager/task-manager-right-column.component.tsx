@@ -8,11 +8,9 @@ import TaskSystemEventsComponent from "@/app/_components/task/events/task-system
 export default function TaskManagerRightColumnComponent({
   tasks,
   selectedTaskId,
-  setSelectedTaskId,
 }: {
   tasks: GetOneTaskInterface[]
   selectedTaskId: string
-  setSelectedTaskId: (taskId: string) => void
 }) {
   const rightColumnRef = useRef<HTMLDivElement>(null)
 
@@ -22,7 +20,6 @@ export default function TaskManagerRightColumnComponent({
       <TaskSystemEventsComponent
         tasks={tasks}
         selectedTaskId={selectedTaskId}
-        setSelectedTaskId={setSelectedTaskId}
         rightColumnRef={rightColumnRef}
       />
     </div>

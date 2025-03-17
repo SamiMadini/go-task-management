@@ -1,7 +1,6 @@
 import RenderTaskFormSheet from "@/app/_components/task/sheets/render-task-form-sheet.component"
 
 export default function TaskCreateSheetPage() {
-  console.log("TaskCreateSheetPage")
   return (
     <RenderTaskFormSheet
       title="Create a Task"

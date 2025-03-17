@@ -13,12 +13,10 @@ import { getPriorityLabel } from "@/app/_components/task/task-helper"
 export default function TaskManagerLeftColumnComponent({
   tasks,
   selectedTaskId,
-  setSelectedTaskId,
   handleShowEvents,
 }: {
   tasks: GetOneTaskInterface[]
   selectedTaskId: string
-  setSelectedTaskId: (taskId: string) => void
   handleShowEvents: (taskId: string) => void
 }) {
   const [activeTab, setActiveTab] = useState("all")

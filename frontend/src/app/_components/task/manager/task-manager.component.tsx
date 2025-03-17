@@ -20,10 +20,9 @@ export default function TaskManagerComponent({ tasks }: { tasks: GetOneTaskInter
       <TaskManagerLeftColumnComponent
         tasks={tasks}
         selectedTaskId={selectedTaskId}
-        setSelectedTaskId={setSelectedTaskId}
         handleShowEvents={(taskId: string) => handleShowEvents(taskId)}
       />
-      <TaskManagerRightColumnComponent tasks={tasks} selectedTaskId={selectedTaskId} setSelectedTaskId={setSelectedTaskId} />
+      <TaskManagerRightColumnComponent tasks={tasks} selectedTaskId={selectedTaskId} />
     </div>
   )
 }

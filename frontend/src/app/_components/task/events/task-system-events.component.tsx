@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, Grid, List } from "lucide-react"
 import { GetOneTaskInterface, GetTaskSystemEventInterface, TaskSystemEventGroupInterface } from "@/app/domain/task/interfaces.task"
@@ -13,17 +13,16 @@ export default function TaskSystemEventsComponent({
   tasks,
   selectedTaskId,
   rightColumnRef,
-  setSelectedTaskId,
 }: {
   tasks: GetOneTaskInterface[]
   selectedTaskId: string
   rightColumnRef: React.RefObject<HTMLDivElement>
-  setSelectedTaskId: (taskId: string) => void
 }) {
   const [eventsOpen, setEventsOpen] = useState(true)
-  const [isEventsFixed, setIsEventsFixed] = useState(false)
   const [fullDetails, setFullDetails] = useState(false)
   const eventsCardRef = useRef<HTMLDivElement>(null)
+
+  const isEventsFixed = false
 
   const buildEventsGroupsDictionary = (events: GetTaskSystemEventInterface[]): { [key: string]: TaskSystemEventGroupInterface } => {
     const eventsGroups: { [key: string]: TaskSystemEventGroupInterface } = {}

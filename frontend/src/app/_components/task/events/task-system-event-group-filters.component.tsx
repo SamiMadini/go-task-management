@@ -24,6 +24,9 @@ export default function TaskSystemEventGroupFilterComponent({
     events: { [key: string]: TaskSystemEventGroupInterface }
   }
 }) {
+  const [originFilters, setOriginFilters] = useState<Record<string, boolean>>({})
+  const [actionFilters, setActionFilters] = useState<Record<string, boolean>>({})
+
   if (!selectedTask) {
     return null
   }
@@ -32,12 +35,9 @@ export default function TaskSystemEventGroupFilterComponent({
   const uniqueOrigins = Array.from(new Set(allEvents.map((event: GetTaskSystemEventInterface) => event.origin)))
   const uniqueActions = Array.from(new Set(allEvents.map((event: GetTaskSystemEventInterface) => event.action)))
 
-  const [originFilters, setOriginFilters] = useState<Record<string, boolean>>({})
-  const [actionFilters, setActionFilters] = useState<Record<string, boolean>>({})
-
-  const filteredEvents = selectedTask?.events
-    ? selectedTask.events.filter((event: GetTaskSystemEventInterface) => originFilters[event.origin] && actionFilters[event.action])
-    : []
+  // const filteredEvents = selectedTask?.events
+  //   ? selectedTask.events.filter((event: GetTaskSystemEventInterface) => originFilters[event.origin] && actionFilters[event.action])
+  //   : []
 
   const toggleAllOrigins = (value: boolean) => {
     const newFilters = { ...originFilters }
