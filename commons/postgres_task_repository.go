@@ -20,7 +20,7 @@ type Task struct {
 	DeletedAt   *time.Time        `json:"deleted_at,omitempty"`
 	CreatedAt   time.Time         `json:"created_at"`
 	UpdatedAt   time.Time         `json:"updated_at"`
-	Events      []TaskSystemEvent `json:"events"` // Now a flat array of events
+	Events      []TaskSystemEvent `json:"events"`
 }
 
 type TaskRepositoryInterface interface {

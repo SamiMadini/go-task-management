@@ -1,28 +1,64 @@
 # Task Management System with Notification Microservice
 
-### Task Management API
+### Docs
+#### System Architecture
 
-- RESTful API built with Go and Gin framework
-- SQLite database for persistence in local
+The Task Management System is built with a microservices architecture, providing a scalable and maintainable solution with notification capabilities.
+
+![System Architecture](/frontend/public/images/full1.png)
+
+#### Database Schema
+
+The system uses PostgreSQL for data persistence with the following schema:
+
+![Database Schema](/frontend/public//images/full2.png)
+
+#### User Interface
+
+The frontend is built with Next.js and Tailwind CSS, providing an intuitive user experience:
+
+![User Interface](/frontend/public//images/full3.png)
+
+## Technology Stack
+
+- **API Gateway**: Custom implementation in Go (Golang)
+- **Frontend**: TypeScript, Next.js, Tailwind CSS
+- **Database**: PostgreSQL
+- **Communication**: gRPC for service-to-service communication
+- **Containerization**: Docker
+- **AWS**: Lambda, EKS
+
+
+### API
+
+- RESTful API
+- Postgres database for persistence
 - Swagger documentation
-- 5=6 routes:
+- Routes:
   - GET /api/_health - Health check route
+
   - GET /api/tasks - List all tasks
   - POST /api/tasks - Create a new task
   - GET /api/tasks/{id} - Get task details
   - PUT /api/tasks/{id} - Update a task
   - DELETE /api/tasks/{id} - Delete a task
 
+  - GET /api/notifications
+  - POST /api/notifications/{id}/read
+  - DELETE /api/notifications/{id}
+
+  - GET /api/task-system-events
+
 ### Notification Microservice
 
-- Event-driven communication with the API via gRPC
+- Event-driven communication with gRPC
+- Event-driven communication with AWS SQS
 - Two use cases:
   - InApp notifications
   - Email notifications
 
 ## Dependencies
 
-- [Gin](https://github.com/gin-gonic/gin) - Web framework
 - [Swagger](https://github.com/swaggo/swag) - API documentation
 - [go-sqlite3](https://github.com/mattn/go-sqlite3) - SQLite driver
 - [uuid](https://github.com/google/uuid) - UUID generation
@@ -100,7 +136,7 @@ go install github.com/air-verse/air@latest
 6. Start the application
 
 ```bash
-make start
+make dc-start-with-build
 ```
 
 The server will start on port :8080 by default.

@@ -37,7 +37,7 @@ func InitDB() (*sql.DB, error) {
 	// Create tasks table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tasks (
-		id TEXT PRIMARY KEY,
+		id SERIAL PRIMARY KEY,
 		title TEXT NOT NULL,
 		description TEXT,
 		status TEXT NOT NULL,
@@ -59,7 +59,7 @@ func InitDB() (*sql.DB, error) {
 	// Create in_app_notifications table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS in_app_notifications (
-		id TEXT PRIMARY KEY,
+		id SERIAL PRIMARY KEY,
 		title TEXT NOT NULL,
 		description TEXT,
 		is_read BOOLEAN NOT NULL DEFAULT FALSE,
@@ -78,8 +78,8 @@ func InitDB() (*sql.DB, error) {
 	// Create task_system_events table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS task_system_events (
-		id TEXT PRIMARY KEY,
-		task_id TEXT NOT NULL,
+		id SERIAL PRIMARY KEY,
+		task_id INTEGER NOT NULL,
 		correlation_id TEXT NOT NULL,
 		origin TEXT NOT NULL,
 		action TEXT NOT NULL,	
@@ -97,7 +97,6 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Create indexes for better performance
 	// Index on tasks.status
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`)
 	if err != nil {
