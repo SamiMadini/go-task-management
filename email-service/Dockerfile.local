@@ -1,0 +1,26 @@
+FROM golang:1.24-bullseye
+
+WORKDIR /app
+
+COPY src/ .
+
+RUN go mod tidy
+RUN go build -o /app/server
+
+ENV PORT=8080
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=postgres
+ENV POSTGRES_DB=tasks
+ENV AWS_ENDPOINT_URL=http://elasticmq:9324
+ENV AWS_REGION=us-east-1
+ENV AWS_ACCESS_KEY_ID=localstack
+ENV AWS_SECRET_ACCESS_KEY=localstack
+ENV SQS_QUEUE_NAME=go-email-service-queue
+ENV DEBUG=1
+
+EXPOSE 8080
+
+CMD ["/app/server"]
+ 

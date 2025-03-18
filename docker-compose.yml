@@ -75,6 +75,74 @@ services:
     networks:
       - app-network
 
+  # Email service with AWS Lambda and SQS
+  elasticmq:
+    container_name: elasticmq
+    image: softwaremill/elasticmq-native
+    ports:
+      - "9324:9324"
+    volumes:
+      - ./email-service/elasticmq.conf:/opt/elasticmq.conf
+    networks:
+      - app-network
+
+  # Initialize SQS queue using AWS CLI
+  sqs-init:
+    container_name: sqs-init
+    image: amazon/aws-cli:latest
+    entrypoint: ["/bin/bash", "-c"]
+    volumes:
+      - ./email-service/create-sqs-queue.sh:/create-sqs-queue.sh
+    command: >
+      "
+      sleep 15 &&
+      chmod +x /create-sqs-queue.sh && 
+      echo 'Creating SQS queues...' &&
+      /create-sqs-queue.sh
+      "
+    environment:
+      - AWS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=localstack
+      - AWS_SECRET_ACCESS_KEY=localstack
+      - SQS_QUEUE_NAME=go-email-service-queue
+    depends_on:
+      - elasticmq
+    networks:
+      - app-network
+
+  email-service:
+    container_name: email-service
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile.local
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=tasks
+      - AWS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=localstack
+      - AWS_SECRET_ACCESS_KEY=localstack
+      - SQS_QUEUE_NAME=go-email-service-queue
+      - DEBUG=1
+    volumes:
+      - ./email-service/logs:/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticmq:
+        condition: service_started
+      sqs-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
 

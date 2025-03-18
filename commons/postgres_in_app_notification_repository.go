@@ -10,15 +10,15 @@ import (
 
 // @Description InAppNotification model
 type InAppNotification struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	IsRead      bool      `json:"is_read"`
-	ReadAt      *time.Time `json:"read_at,omitempty"`
-	Deleted     bool      `json:"deleted"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string      `json:"id"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	IsRead      bool        `json:"is_read"`
+	ReadAt      *time.Time  `json:"read_at,omitempty"`
+	Deleted     bool        `json:"deleted"`
+	DeletedAt   *time.Time  `json:"deleted_at,omitempty"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+	CreatedAt   time.Time   `json:"created_at"`
 }
 
 type InAppNotificationRepositoryInterface interface {
