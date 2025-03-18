@@ -4,6 +4,8 @@ import * as lambda from "aws-cdk-lib/aws-lambda"
 import { Construct } from "constructs"
 import { EmailServiceStackProps } from "../email-service-stack"
 import { IFunction } from "aws-cdk-lib/aws-lambda"
+import { Queue } from "aws-cdk-lib/aws-sqs"
+import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources"
 
 export interface PostgresConfigInterface {
   readonly host: string
@@ -16,6 +18,7 @@ export interface PostgresConfigInterface {
 export interface EmailServiceProps extends EmailServiceStackProps {
   readonly postgresConfig: PostgresConfigInterface
   readonly emailServiceLambda: LambdaProps
+  readonly sqs: Queue
 }
 
 export class EmailService extends Construct {
@@ -50,6 +53,14 @@ export class EmailService extends Construct {
         POSTGRES_DB: props.postgresConfig.db,
       },
     })
+
+    const sqsEventSource = new SqsEventSource(props.sqs, {
+      batchSize: 1,
+      maxBatchingWindow: Duration.seconds(10),
+      enabled: true,
+    })
+
+    this.function.addEventSource(sqsEventSource)
 
     new CfnOutput(this, "EmailServiceLambdaArn", {
       value: this.function.functionArn,
