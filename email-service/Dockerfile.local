@@ -10,12 +10,12 @@ COPY go.work go.work.sum ./
 
 WORKDIR /build/email-service/src
 
-RUN go mod download && go build -o server
+RUN go mod download && CGO_ENABLED=0 go build -o /build/server
 
 FROM debian:bullseye-slim
 
 WORKDIR /app
-COPY --from=0 /build/email-service/src/server .
+COPY --from=0 /build/server /app/server
 
 ENV PORT=8080
 ENV POSTGRES_HOST=postgres

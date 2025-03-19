@@ -2,7 +2,8 @@ FROM golang:1.24-bullseye AS builder
 
 WORKDIR /build
 
-COPY . ./
+COPY commons/ /build/commons/
+COPY email-service/src/ /build/email-service/src/
 
 WORKDIR /build/email-service/src
 
