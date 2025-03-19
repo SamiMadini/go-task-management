@@ -1,18 +1,18 @@
 package main
 
 import (
-    "context"
-    "log"
-    "net/http"
-    "sync"
-    "time"
+	"context"
+	"log"
+	"net/http"
+	"sync"
+	"time"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 
-    commons "sama/go-task-management/commons"
-    pb "sama/go-task-management/commons/api"
+	commons "sama/go-task-management/commons"
+	pb "sama/go-task-management/commons/api"
 
-    "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +56,12 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    if err := params.Validate(); err != nil {
+        log.Printf("Validation error: %v", err)
+        commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
     now := time.Now()
     taskId := uuid.New().String()
     correlationId := uuid.New().String()
@@ -71,20 +77,17 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         UpdatedAt:   now,
     }
 
-    var wg sync.WaitGroup
-    var createErr error
+    var result commons.Task
+    result, err := h.taskRepository.Create(task)
+    if err != nil {
+        log.Printf("Error creating task: %v", err)
+        commons.InternalServerErrorHandler(w)
+        return
+    }
+    task = result
 
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        var result commons.Task
-        result, createErr = h.taskRepository.Create(task)
-        if createErr != nil {
-            log.Printf("Error creating task: %v", createErr)
-            return
-        }
-        task = result
-    }()
+    var wg sync.WaitGroup
+    var eventErr error
 
     wg.Add(1)
     go func() {
@@ -100,6 +103,7 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         _, err := h.taskSystemEventRepository.Create(requestEvent, 1)
         if err != nil {
             log.Printf("Error creating request event: %v", err)
+            eventErr = err
         }
     }()
 
@@ -117,6 +121,7 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         _, err := h.taskSystemEventRepository.Create(createdEvent, 2)
         if err != nil {
             log.Printf("Error creating task created event: %v", err)
+            eventErr = err
         }
     }()
 
@@ -148,10 +153,12 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         _, eventErr := h.taskSystemEventRepository.Create(notificationEvent, 3)
         if eventErr != nil {
             log.Printf("Error creating notification event: %v", eventErr)
+            eventErr = err
         }
 
         if err != nil {
             log.Printf("Failed to send notification: %v", err)
+            eventErr = err
         } else {
             log.Printf("Notification sent successfully")
         }
@@ -159,9 +166,8 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
     wg.Wait()
 
-    if createErr != nil {
-        commons.InternalServerErrorHandler(w)
-        return
+    if eventErr != nil {
+        log.Printf("Some events failed to be created: %v", eventErr)
     }
 
     commons.WriteJSON(w, http.StatusCreated, task)
@@ -185,6 +191,12 @@ func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
     if err := commons.ReadJSON(r, &params); err != nil {
         log.Printf("Invalid task update request: %v", err)
         commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
+        return
+    }
+
+    if err := params.Validate(); err != nil {
+        log.Printf("Validation error: %v", err)
+        commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
         return
     }
 
