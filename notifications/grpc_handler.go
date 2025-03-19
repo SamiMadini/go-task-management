@@ -25,12 +25,12 @@ func (h *handler) SendNotification(ctx context.Context, in *pb.SendNotificationR
 	for _, t := range in.Types {
 		types = append(types, t.String())
 	}
-	
+
 	if len(types) == 0 && len(in.Types) > 0 {
 		log.Println("Warning: Received notification request with empty type values")
 	}
 
-	h.service.Handle(in.TaskId, in.CorrelationId, types)
+	h.service.Handle(ctx, in.TaskId, in.CorrelationId, types)
 
 	return &pb.SendNotificationResponse{
 		Ack: "Notification sent",
