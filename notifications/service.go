@@ -78,9 +78,9 @@ func (s *NotificationService) createInAppNotification(_ context.Context, task *c
 
 func (s *NotificationService) processNotificationEvents(ctx context.Context, taskID, correlationID string) error {
 	var wg sync.WaitGroup
-	errChan := make(chan error, 5)
+	errChan := make(chan error, 3)
 
-	wg.Add(5)
+	wg.Add(3)
 
 	go s.createSystemEvent(ctx, &wg, errChan, taskID, correlationID, "Notification Service", 
 		"notification:db:in-app-notification-created", "In-app notification created in database", 6)
@@ -94,13 +94,6 @@ func (s *NotificationService) processNotificationEvents(ctx context.Context, tas
 			errChan <- err
 		}
 	}()
-
-	// Temporary email service events
-	go s.createSystemEvent(ctx, &wg, errChan, taskID, correlationID, "Email Service",
-		"email:db:email-created", "Email successfully created in database", 11)
-
-	go s.createSystemEvent(ctx, &wg, errChan, taskID, correlationID, "Email Service",
-		"email:third-party:email-delivery-sent", "Email sent for delivery", 14)
 
 	wg.Wait()
 	close(errChan)

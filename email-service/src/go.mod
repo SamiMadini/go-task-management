@@ -1,14 +1,13 @@
-module email-service
+module email-service/src
 
-go 1.22
-
-toolchain go1.24.0
+go 1.24.0
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0
 	github.com/aws/aws-sdk-go-v2 v1.26.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.31.3
+	sama/go-task-management/commons v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -23,5 +22,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.23.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.5 // indirect
 	github.com/aws/smithy-go v1.20.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 )
+
+replace sama/go-task-management/commons => ../../commons

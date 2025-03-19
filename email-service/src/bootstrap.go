@@ -12,12 +12,16 @@ import (
 	"syscall"
 	"time"
 
+	commons "sama/go-task-management/commons"
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
+
+var emailService *EmailService
 
 func init() {
 	logFile, err := os.OpenFile("/tmp/email-service.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -29,15 +33,50 @@ func init() {
 	}
 	
 	log.Println("======= Email Service Starting Up =======")
-	log.Printf("Environment variables:")
-	for _, env := range os.Environ() {
-		log.Println(env)
+	// log.Printf("Environment variables:")
+	// for _, env := range os.Environ() {
+	// 	log.Println(env)
+	// }
+
+	database, err := commons.InitDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	eventRepo := commons.NewPostgresTaskSystemEventRepository(database)
+	emailService = NewEmailService(eventRepo)
 }
 
 type EmailNotificationEvent struct {
 	TaskId        string `json:"taskId"`
 	CorrelationId string `json:"correlationId"`
+}
+
+type EmailService struct {
+	taskSystemEventRepository commons.TaskSystemEventRepositoryInterface
+}
+
+func NewEmailService(eventRepo commons.TaskSystemEventRepositoryInterface) *EmailService {
+	return &EmailService{
+		taskSystemEventRepository: eventRepo,
+	}
+}
+
+func (s *EmailService) createSystemEvent(_ context.Context, taskID, correlationID, origin, action, message string, priority int) error {
+	event := commons.TaskSystemEvent{
+		TaskId:        taskID,
+		CorrelationId: correlationID,
+		Origin:        origin,
+		Action:        action,
+		Message:       message,
+		JsonData:      "{}",
+	}
+
+	_, err := s.taskSystemEventRepository.Create(event, priority)
+	if err != nil {
+		return fmt.Errorf("failed to create system event: %w", err)
+	}
+	return nil
 }
 
 func getSQSClient(ctx context.Context) (*sqs.Client, error) {
@@ -267,14 +306,40 @@ func handleRequest(ctx context.Context, event json.RawMessage) error {
 
 	log.Printf("Email service processing message")
 
-	log.Printf("PostgreSQL Configuration: Host=%s, Port=%s, User=%s, DB=%s",
-		os.Getenv("POSTGRES_HOST"),
-		os.Getenv("POSTGRES_PORT"),
-		os.Getenv("POSTGRES_USER"),
-		os.Getenv("POSTGRES_DB"))
+	// log.Printf("PostgreSQL Configuration: Host=%s, Port=%s, User=%s, DB=%s",
+	// 	os.Getenv("POSTGRES_HOST"),
+	// 	os.Getenv("POSTGRES_PORT"),
+	// 	os.Getenv("POSTGRES_USER"),
+	// 	os.Getenv("POSTGRES_DB"))
 
 	log.Printf("Request parameters: taskId=%s, correlationId=%s",
 		emailNotificationEvent.TaskId, emailNotificationEvent.CorrelationId)
+
+	if err := emailService.createSystemEvent(
+		ctx,
+		emailNotificationEvent.TaskId,
+		emailNotificationEvent.CorrelationId,
+		"Email Service",
+		"email:db:email-created",
+		"Email successfully created in database",
+		11,
+	); err != nil {
+		log.Printf("Error creating email created event: %v", err)
+		return err
+	}
+
+	if err := emailService.createSystemEvent(
+		ctx,
+		emailNotificationEvent.TaskId,
+		emailNotificationEvent.CorrelationId,
+		"Email Service",
+		"email:third-party:email-delivery-sent",
+		"Email sent for delivery",
+		14,
+	); err != nil {
+		log.Printf("Error creating email delivery event: %v", err)
+		return err
+	}
 
 	return nil
 }

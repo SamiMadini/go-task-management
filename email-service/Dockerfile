@@ -1,17 +1,18 @@
 FROM golang:1.24-bullseye AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-COPY src/ .
+COPY . ./
 
-RUN go mod tidy
-RUN GOCACHE=/tmp GOARCH=amd64 GOOS=linux go build -o /app/bootstrap
+WORKDIR /build/email-service/src
+
+RUN go mod download && go build -o bootstrap
 
 FROM debian:bullseye-slim
 
 WORKDIR /app
 
-COPY --from=builder /app/bootstrap /app/bootstrap
+COPY --from=builder /build/email-service/src/bootstrap /app/bootstrap
 
 ENV POSTGRES_HOST=postgres
 ENV POSTGRES_PORT=5432

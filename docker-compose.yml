@@ -114,8 +114,8 @@ services:
   email-service:
     container_name: email-service
     build:
-      context: ./email-service
-      dockerfile: Dockerfile.local
+      context: .
+      dockerfile: email-service/Dockerfile.local
     ports:
       - "8080:8080"
     environment:
