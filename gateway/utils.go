@@ -22,15 +22,24 @@ var (
 
 func parseDueDate(dueDateStr string, defaultTime time.Time) time.Time {
     if dueDateStr == "" {
+        log.Printf("Due date is empty, returning default time: %v", defaultTime)
         return defaultTime
     }
 
-    t, err := time.Parse(time.RFC3339, dueDateStr)
+    log.Printf("Attempting to parse due date: %s", dueDateStr)
+
+    t, err := time.Parse(time.RFC3339Nano, dueDateStr)
     if err != nil {
-        log.Printf("Error parsing due date: %v", err)
-        return defaultTime
+        log.Printf("Failed to parse with RFC3339Nano: %v", err)
+
+        t, err = time.Parse(time.RFC3339, dueDateStr)
+        if err != nil {
+            log.Printf("Failed to parse with RFC3339: %v", err)
+            return defaultTime
+        }
     }
 
+    log.Printf("Successfully parsed due date: %v", t)
     return t
 }
 

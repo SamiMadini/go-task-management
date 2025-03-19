@@ -26,7 +26,7 @@ The frontend is built with Next.js and Tailwind CSS, providing an intuitive user
 - **Database**: PostgreSQL
 - **Communication**: gRPC for service-to-service communication
 - **Containerization**: Docker
-- **AWS**: Lambda, EKS., CDK
+- **AWS**: Lambda, EKS, CDK
 
 
 ### API

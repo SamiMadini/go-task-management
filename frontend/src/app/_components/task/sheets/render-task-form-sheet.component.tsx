@@ -6,6 +6,7 @@ import { axiosInstance } from "@/lib/http/axios"
 import { useRouter } from "next/navigation"
 import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 import { AxiosResponse } from "axios"
+import { DateTime } from "luxon"
 
 export default function RenderTaskFormSheet({
   task,
@@ -46,7 +47,7 @@ export default function RenderTaskFormSheet({
                 const body = {
                   title: data.title,
                   description: data.description,
-                  dueDate: data.dueDate,
+                  due_date: data.dueDate ? DateTime.fromJSDate(data.dueDate).toISO() : null,
                   priority: data.priority,
                   status: data.status,
                 }
@@ -61,7 +62,7 @@ export default function RenderTaskFormSheet({
                 const body = {
                   title: data.title,
                   description: data.description,
-                  dueDate: data.dueDate,
+                  due_date: data.dueDate ? DateTime.fromJSDate(data.dueDate).toISO() : null,
                   priority: data.priority,
                   status: data.status,
                 }
