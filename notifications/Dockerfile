@@ -28,5 +28,12 @@ RUN cd /app && go mod download && cd /app/notifications && go build -o notificat
 # Expose port
 EXPOSE 2000
 
+# Set AWS environment variables with defaults
+ENV AWS_REGION=us-east-1
+ENV AWS_ENDPOINT_URL=http://elasticmq:9324
+ENV AWS_ACCESS_KEY_ID=localstack
+ENV AWS_SECRET_ACCESS_KEY=localstack
+ENV SQS_QUEUE_NAME=go-email-service-queue
+
 # Run the binary
 CMD ["./notifications"] 
