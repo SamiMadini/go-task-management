@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, Grid, List } from "lucide-react"
 import { GetOneTaskInterface, GetTaskSystemEventInterface, TaskSystemEventGroupInterface } from "@/app/domain/task/interfaces.task"
@@ -20,9 +20,8 @@ export default function TaskSystemEventsComponent({
 }) {
   const [eventsOpen, setEventsOpen] = useState(true)
   const [fullDetails, setFullDetails] = useState(false)
+  const [isEventsFixed, setIsEventsFixed] = useState(false)
   const eventsCardRef = useRef<HTMLDivElement>(null)
-
-  const isEventsFixed = false
 
   const buildEventsGroupsDictionary = (events: GetTaskSystemEventInterface[]): { [key: string]: TaskSystemEventGroupInterface } => {
     const eventsGroups: { [key: string]: TaskSystemEventGroupInterface } = {}
@@ -64,25 +63,23 @@ export default function TaskSystemEventsComponent({
   //   setActionFilters(newActionFilters)
   // }, [selectedTaskId, uniqueOrigins, uniqueActions])
 
-  // useEffect(() => {
-  //   const handleScroll = () => {
-  //     if (!eventsCardRef.current || !rightColumnRef.current) return
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!eventsCardRef.current || !rightColumnRef.current) return
 
-  //     const rightColumnRect = rightColumnRef.current.getBoundingClientRect()
-  //     const eventsCardRect = eventsCardRef.current.getBoundingClientRect()
-  //     const topBarHeight = 64 // Height of the top bar
+      const rightColumnRect = rightColumnRef.current.getBoundingClientRect()
+      const topBarHeight = 64
 
-  //     // Check if we should fix the events card
-  //     if (rightColumnRect.top < topBarHeight) {
-  //       setIsEventsFixed(true)
-  //     } else {
-  //       setIsEventsFixed(false)
-  //     }
-  //   }
+      if (rightColumnRect.top < topBarHeight) {
+        setIsEventsFixed(true)
+      } else {
+        setIsEventsFixed(false)
+      }
+    }
 
-  //   window.addEventListener("scroll", handleScroll)
-  //   return () => window.removeEventListener("scroll", handleScroll)
-  // }, [])
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
     <div
