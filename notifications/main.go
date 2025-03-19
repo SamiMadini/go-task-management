@@ -49,9 +49,10 @@ func main() {
 		log.Fatalf("Failed to create SQS client: %v", err)
 	}
 
-	service := NewNotificationService(taskRepository, taskSystemEventRepository, inAppNotificationRepository, sqsClient)
+	inAppService := NewInAppNotificationService(taskRepository, taskSystemEventRepository, inAppNotificationRepository)
+	emailService := NewEmailNotificationService(taskRepository, taskSystemEventRepository, sqsClient)
 
-	NewGrpcHandler(grpcServer, service)
+	NewGrpcHandler(grpcServer, inAppService, emailService)
 
 	log.Println("Notifications service started at", grpcServerAddr)
 

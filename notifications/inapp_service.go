@@ -2,51 +2,31 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 
 	commons "sama/go-task-management/commons"
 )
 
-const (
-	defaultRegion    = "us-east-1"
-	defaultQueueName = "go-email-service-queue"
-)
-
-type Config struct {
-	AWSEndpoint string
-	AWSRegion   string
-	QueueName   string
-}
-
-type EmailEvent struct {
-	TaskID        string `json:"taskId"`
-	CorrelationID string `json:"correlationId"`
-}
-type NotificationService struct {
+type InAppNotificationService struct {
 	taskRepository              commons.TaskRepositoryInterface
 	taskSystemEventRepository   commons.TaskSystemEventRepositoryInterface
 	inAppNotificationRepository commons.InAppNotificationRepositoryInterface
-	sqsClient                   SQSClientInterface
 }
 
-func NewNotificationService(
+func NewInAppNotificationService(
 	taskRepo commons.TaskRepositoryInterface,
 	eventRepo commons.TaskSystemEventRepositoryInterface,
 	notifRepo commons.InAppNotificationRepositoryInterface,
-	sqsClient SQSClientInterface,
-) *NotificationService {
-	return &NotificationService{
+) *InAppNotificationService {
+	return &InAppNotificationService{
 		taskRepository:              taskRepo,
 		taskSystemEventRepository:   eventRepo,
 		inAppNotificationRepository: notifRepo,
-		sqsClient:                   sqsClient,
 	}
 }
 
-func (s *NotificationService) Handle(ctx context.Context, taskID, correlationID string, notificationTypes []string) error {
+func (s *InAppNotificationService) Handle(ctx context.Context, taskID, correlationID string, _ []string) error {
 	task, err := s.taskRepository.GetByID(taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
@@ -63,7 +43,7 @@ func (s *NotificationService) Handle(ctx context.Context, taskID, correlationID 
 	return s.updateTaskStatus(ctx, &task)
 }
 
-func (s *NotificationService) createInAppNotification(_ context.Context, task *commons.Task) error {
+func (s *InAppNotificationService) createInAppNotification(_ context.Context, task *commons.Task) error {
 	inAppNotification := commons.InAppNotification{
 		Title:       task.Title,
 		Description: task.Description,
@@ -76,24 +56,14 @@ func (s *NotificationService) createInAppNotification(_ context.Context, task *c
 	return nil
 }
 
-func (s *NotificationService) processNotificationEvents(ctx context.Context, taskID, correlationID string) error {
+func (s *InAppNotificationService) processNotificationEvents(ctx context.Context, taskID, correlationID string) error {
 	var wg sync.WaitGroup
-	errChan := make(chan error, 3)
+	errChan := make(chan error, 1)
 
-	wg.Add(3)
-
-	go s.createSystemEvent(ctx, &wg, errChan, taskID, correlationID, "Notification Service", 
-		"notification:db:in-app-notification-created", "In-app notification created in database", 6)
+	wg.Add(1)
 
 	go s.createSystemEvent(ctx, &wg, errChan, taskID, correlationID, "Notification Service",
-		"notification:event:email-task-created", "Email event sent", 9)
-
-	go func() {
-		defer wg.Done()
-		if err := s.sendEmailNotification(ctx, taskID, correlationID); err != nil {
-			errChan <- err
-		}
-	}()
+		"notification:db:in-app-notification-created", "In-app notification created in database", 6)
 
 	wg.Wait()
 	close(errChan)
@@ -107,7 +77,7 @@ func (s *NotificationService) processNotificationEvents(ctx context.Context, tas
 	return nil
 }
 
-func (s *NotificationService) createSystemEvent(_ context.Context, wg *sync.WaitGroup, errChan chan<- error,
+func (s *InAppNotificationService) createSystemEvent(_ context.Context, wg *sync.WaitGroup, errChan chan<- error,
 	taskID, correlationID, origin, action, message string, priority int) {
 	defer wg.Done()
 
@@ -126,27 +96,7 @@ func (s *NotificationService) createSystemEvent(_ context.Context, wg *sync.Wait
 	}
 }
 
-func (s *NotificationService) sendEmailNotification(ctx context.Context, taskID, correlationID string) error {
-	emailEvent := EmailEvent{
-		TaskID:        taskID,
-		CorrelationID: correlationID,
-	}
-
-	jsonBytes, err := json.Marshal(emailEvent)
-	if err != nil {
-		return fmt.Errorf("failed to marshal email event: %w", err)
-	}
-
-	if err := s.sqsClient.SendMessage(ctx, string(jsonBytes)); err != nil {
-		return fmt.Errorf("failed to send message to SQS: %w", err)
-	}
-
-	log.Printf("Successfully sent task notification to SQS queue for email processing: %s", taskID)
-	return nil
-}
-
-func (s *NotificationService) updateTaskStatus(_ context.Context, task *commons.Task) error {
-	task.EmailSent = true
+func (s *InAppNotificationService) updateTaskStatus(_ context.Context, task *commons.Task) error {
 	task.InAppSent = true
 
 	err := s.taskRepository.Update(*task)
