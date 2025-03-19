@@ -15,6 +15,17 @@ import (
 	"google.golang.org/grpc"
 )
 
+// @Summary Get a task by ID
+// @Description Retrieves a specific task by its ID
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {object} GetTaskResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tasks/{id} [get]
 func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {
@@ -64,6 +75,14 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
     commons.WriteJSON(w, http.StatusOK, response)
 }
 
+// @Summary Get all tasks
+// @Description Retrieves all tasks in the system
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Success 200 {object} GetAllTasksResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tasks [get]
 func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
     tasks, err := h.taskRepository.GetAll()
     if err != nil {
@@ -115,6 +134,16 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
     commons.WriteJSON(w, http.StatusOK, response)
 }
 
+// @Summary Create a new task
+// @Description Creates a new task in the system
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param task body CreateTaskRequest true "Task details"
+// @Success 201 {object} CreateTaskResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tasks [post]
 func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
     var params CreateTaskRequest
     if err := commons.ReadJSON(r, &params); err != nil {
@@ -242,6 +271,18 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
     })
 }
 
+// @Summary Update a task
+// @Description Updates an existing task
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Param task body UpdateTaskRequest true "Updated task details"
+// @Success 200 {object} UpdateTaskResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tasks/{id} [put]
 func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {
@@ -311,6 +352,17 @@ func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
     })
 }
 
+// @Summary Delete a task
+// @Description Deletes a task from the system
+// @Tags tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tasks/{id} [delete]
 func (h *handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {

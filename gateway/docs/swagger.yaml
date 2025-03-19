@@ -1,0 +1,417 @@
+basePath: /api/v1
+definitions:
+  main.CreateTaskRequest:
+    properties:
+      description:
+        maxLength: 500
+        type: string
+      due_date:
+        type: string
+      priority:
+        enum:
+        - 1
+        - 2
+        - 3
+        type: integer
+      status:
+        enum:
+        - todo
+        - in_progress
+        - done
+        type: string
+      title:
+        maxLength: 100
+        minLength: 3
+        type: string
+    required:
+    - priority
+    - status
+    - title
+    type: object
+  main.CreateTaskResponse:
+    properties:
+      task_id:
+        type: string
+    type: object
+  main.ErrorResponse:
+    description: Error response model
+    properties:
+      error:
+        example: Invalid task ID format
+        type: string
+    type: object
+  main.GetAllInAppNotificationsResponse:
+    properties:
+      in_app_notifications:
+        items:
+          $ref: '#/definitions/main.InAppNotificationResponse'
+        type: array
+    type: object
+  main.GetAllTaskSystemEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/main.TaskSystemEventResponse'
+        type: array
+    type: object
+  main.GetAllTasksResponse:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/main.GetTaskResponse'
+        type: array
+    type: object
+  main.GetTaskResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      due_date:
+        type: string
+      events:
+        items:
+          $ref: '#/definitions/main.TaskSystemEventResponse'
+        type: array
+      id:
+        type: string
+      priority:
+        type: integer
+      status:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  main.InAppNotificationResponse:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      read_at:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  main.TaskSystemEventResponse:
+    properties:
+      action:
+        type: string
+      correlation_id:
+        type: string
+      created_at:
+        type: string
+      emit_at:
+        type: string
+      id:
+        type: string
+      json_data:
+        type: string
+      message:
+        type: string
+      origin:
+        type: string
+      task_id:
+        type: string
+    type: object
+  main.UpdateOnReadResponse:
+    properties:
+      success:
+        type: boolean
+    type: object
+  main.UpdateTaskRequest:
+    properties:
+      description:
+        maxLength: 500
+        type: string
+      due_date:
+        type: string
+      priority:
+        enum:
+        - 1
+        - 2
+        - 3
+        type: integer
+      status:
+        enum:
+        - todo
+        - in_progress
+        - done
+        type: string
+      title:
+        maxLength: 100
+        minLength: 3
+        type: string
+    type: object
+  main.UpdateTaskResponse:
+    properties:
+      task_id:
+        type: string
+    type: object
+host: localhost:3012
+info:
+  contact: {}
+  description: Error response model
+  title: Task Management API
+  version: "1.0"
+paths:
+  /notifications:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all in-app notifications for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetAllInAppNotificationsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get all in-app notifications
+      tags:
+      - notifications
+  /notifications/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a notification from the system
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Delete a notification
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    put:
+      consumes:
+      - application/json
+      description: Updates a notification's read status
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UpdateOnReadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Mark notification as read
+      tags:
+      - notifications
+  /system-events:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all system events related to tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetAllTaskSystemEventsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get all task system events
+      tags:
+      - system-events
+  /tasks:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all tasks in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetAllTasksResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get all tasks
+      tags:
+      - tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task in the system
+      parameters:
+      - description: Task details
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.CreateTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Create a new task
+      tags:
+      - tasks
+  /tasks/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a task from the system
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Delete a task
+      tags:
+      - tasks
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a specific task by its ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.GetTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Get a task by ID
+      tags:
+      - tasks
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated task details
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.UpdateTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Update a task
+      tags:
+      - tasks
+swagger: "2.0"

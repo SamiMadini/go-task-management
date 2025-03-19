@@ -7,6 +7,14 @@ import (
 	commons "sama/go-task-management/commons"
 )
 
+// @Summary Get all task system events
+// @Description Retrieves all system events related to tasks
+// @Tags system-events
+// @Accept json
+// @Produce json
+// @Success 200 {object} GetAllTaskSystemEventsResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /system-events [get]
 func (h *handler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request) {
     events, err := h.taskSystemEventRepository.GetAll()
     if err != nil {

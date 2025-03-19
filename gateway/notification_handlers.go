@@ -8,6 +8,14 @@ import (
 	commons "sama/go-task-management/commons"
 )
 
+// @Summary Get all in-app notifications
+// @Description Retrieves all in-app notifications for the current user
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Success 200 {object} GetAllInAppNotificationsResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /notifications [get]
 func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Request) {
     notifications, err := h.inAppNotificationRepository.GetAll()
     if err != nil {
@@ -46,6 +54,17 @@ func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Reques
     commons.WriteJSON(w, http.StatusOK, response)
 }
 
+// @Summary Mark notification as read
+// @Description Updates a notification's read status
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Notification ID"
+// @Success 200 {object} UpdateOnReadResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /notifications/{id}/read [put]
 func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {
@@ -89,6 +108,17 @@ func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
     })
 }
 
+// @Summary Delete a notification
+// @Description Deletes a notification from the system
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Notification ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /notifications/{id} [delete]
 func (h *handler) DeleteInAppNotification(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {

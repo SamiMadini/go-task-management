@@ -63,53 +63,26 @@ The frontend is built with Next.js and Tailwind CSS, providing an intuitive user
 - [go-sqlite3](https://github.com/mattn/go-sqlite3) - SQLite driver
 - [uuid](https://github.com/google/uuid) - UUID generation
 
+## Access to Swagger API Documentation
+http://localhost:3012/swagger/
+
+
+
 ## Installation
 
-1. Install swagger
-
-```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-#### Troubleshooting
-To do this temporarily for the current session:
-
-> export PATH=$PATH:$HOME/go/bin
-
-To permanently add it to your PATH, you can edit your shell profile (.bashrc or .zshrc, depending on your shell):
-
-**For Bash**
-
-> echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
-> source ~/.bashrc
-
-**For Zsh**
-
-> echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.zshrc
-> source ~/.zshrc
-
-After updating your PATH, verify that the swag command works:
-
-> swag --version
-
-If you want to install swag globally and avoid the PATH issue altogether, you can move the swag binary to a directory like /usr/local/bin which is usually in your PATH by default:
-
-> sudo mv $HOME/go/bin/swag /usr/local/bin/
-
-
-2. Init multi-modules
+1. Init multi-modules
 
 ```bash
 make init-multi-modules
 ```
 
-3. Install dependencies
+2. Install dependencies
 
 ```bash
 make install
 ```
 
-4. Install Go gRPC
+3. Install Go gRPC
 
 With brew
 ```bash
