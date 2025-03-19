@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	commons "sama/go-task-management/commons"
 	"time"
@@ -63,29 +62,4 @@ func marshallJson(obj any) string {
         return "{}"
     }
     return string(jsonData)
-}
-
-type operationResult struct {
-    operation string
-    err       error
-}
-
-func handleOperationErrors(operations []func() error) error {
-    errChan := make(chan operationResult, len(operations))
-
-    for i, op := range operations {
-        go func(i int, op func() error) {
-            if err := op(); err != nil {
-                errChan <- operationResult{fmt.Sprintf("operation_%d", i), err}
-            }
-        }(i, op)
-    }
-
-    close(errChan)
-    for result := range errChan {
-        if result.err != nil {
-            return result.err
-        }
-    }
-    return nil
 }
