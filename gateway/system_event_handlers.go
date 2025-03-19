@@ -1,10 +1,10 @@
 package main
 
 import (
-    "log"
-    "net/http"
+	"log"
+	"net/http"
 
-    commons "sama/go-task-management/commons"
+	commons "sama/go-task-management/commons"
 )
 
 func (h *handler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request) {
@@ -16,9 +16,29 @@ func (h *handler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request)
     }
 
     if len(events) == 0 {
-        commons.WriteJSON(w, http.StatusOK, []commons.TaskSystemEvent{})
+        commons.WriteJSON(w, http.StatusOK, GetAllTaskSystemEventsResponse{
+            Events: []TaskSystemEventResponse{},
+        })
         return
     }
 
-    commons.WriteJSON(w, http.StatusOK, events)
+    response := GetAllTaskSystemEventsResponse{
+        Events: make([]TaskSystemEventResponse, len(events)),
+    }
+
+    for i, event := range events {
+        response.Events[i] = TaskSystemEventResponse{
+            ID:            event.ID,
+            TaskId:        event.TaskId,
+            CorrelationId: event.CorrelationId,
+            Origin:        event.Origin,
+            Action:        event.Action,
+            Message:       event.Message,
+            JsonData:      event.JsonData,
+            EmitAt:        event.EmitAt,
+            CreatedAt:     event.CreatedAt,
+        }
+    }
+
+    commons.WriteJSON(w, http.StatusOK, response)
 }

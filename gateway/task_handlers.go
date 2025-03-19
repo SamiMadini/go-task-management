@@ -22,6 +22,11 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    if !commons.IsValidUUID(id) {
+        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
+        return
+    }
+
     task, err := h.taskRepository.GetByID(id)
     if err != nil {
         log.Printf("Error fetching task %s: %v", id, err)
@@ -29,7 +34,34 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    commons.WriteJSON(w, http.StatusOK, task)
+    events := make([]TaskSystemEventResponse, len(task.Events))
+    for i, event := range task.Events {
+        events[i] = TaskSystemEventResponse{
+            ID:            event.ID,
+            TaskId:        event.TaskId,
+            CorrelationId: event.CorrelationId,
+            Origin:        event.Origin,
+            Action:        event.Action,
+            Message:       event.Message,
+            JsonData:      event.JsonData,
+            EmitAt:        event.EmitAt,
+            CreatedAt:     event.CreatedAt,
+        }
+    }
+
+    response := GetTaskResponse{
+        ID:          task.ID,
+        Title:       task.Title,
+        Description: task.Description,
+        Status:      task.Status,
+        Priority:    task.Priority,
+        DueDate:     task.DueDate,
+        CreatedAt:   task.CreatedAt,
+        UpdatedAt:   task.UpdatedAt,
+        Events:      events,
+    }
+
+    commons.WriteJSON(w, http.StatusOK, response)
 }
 
 func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
@@ -41,11 +73,46 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
     }
 
     if len(tasks) == 0 {
-        commons.WriteJSON(w, http.StatusOK, []commons.Task{})
+        commons.WriteJSON(w, http.StatusOK, GetAllTasksResponse{
+            Tasks: []GetTaskResponse{},
+        })
         return
     }
 
-    commons.WriteJSON(w, http.StatusOK, tasks)
+    response := GetAllTasksResponse{
+        Tasks: make([]GetTaskResponse, len(tasks)),
+    }
+
+    for i, task := range tasks {
+        events := make([]TaskSystemEventResponse, len(task.Events))
+        for j, event := range task.Events {
+            events[j] = TaskSystemEventResponse{
+                ID:            event.ID,
+                TaskId:        event.TaskId,
+                CorrelationId: event.CorrelationId,
+                Origin:        event.Origin,
+                Action:        event.Action,
+                Message:       event.Message,
+                JsonData:      event.JsonData,
+                EmitAt:        event.EmitAt,
+                CreatedAt:     event.CreatedAt,
+            }
+        }
+
+        response.Tasks[i] = GetTaskResponse{
+            ID:          task.ID,
+            Title:       task.Title,
+            Description: task.Description,
+            Status:      task.Status,
+            Priority:    task.Priority,
+            DueDate:     task.DueDate,
+            CreatedAt:   task.CreatedAt,
+            UpdatedAt:   task.UpdatedAt,
+            Events:      events,
+        }
+    }
+
+    commons.WriteJSON(w, http.StatusOK, response)
 }
 
 func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
@@ -170,13 +237,20 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
         log.Printf("Some events failed to be created: %v", eventErr)
     }
 
-    commons.WriteJSON(w, http.StatusCreated, task)
+    commons.WriteJSON(w, http.StatusCreated, CreateTaskResponse{
+        TaskId: task.ID,
+    })
 }
 
 func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {
         commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
+        return
+    }
+
+    if !commons.IsValidUUID(id) {
+        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
         return
     }
 
@@ -232,13 +306,20 @@ func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
         log.Printf("Error creating task updated event: %v", err)
     }
 
-    commons.WriteJSON(w, http.StatusOK, map[string]string{"status": "success"})
+    commons.WriteJSON(w, http.StatusOK, UpdateTaskResponse{
+        TaskId: id,
+    })
 }
 
 func (h *handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
     id := r.PathValue("id")
     if id == "" {
         commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
+        return
+    }
+
+    if !commons.IsValidUUID(id) {
+        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
         return
     }
 
@@ -270,5 +351,7 @@ func (h *handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
         log.Printf("Error creating task deleted event: %v", err)
     }
 
-    commons.WriteJSON(w, http.StatusOK, map[string]string{"status": "success"})
+    commons.WriteJSON(w, http.StatusOK, map[string]bool{
+        "success": true,
+    })
 }

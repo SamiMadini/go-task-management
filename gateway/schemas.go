@@ -6,14 +6,19 @@ import (
 )
 
 type GetTaskResponse struct {
-	TaskId      string    `json:"task_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"`
-	Priority    int       `json:"priority"`
-	DueDate     time.Time `json:"due_date"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string                    `json:"id"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Status      string                    `json:"status"`
+	Priority    int                       `json:"priority"`
+	DueDate     time.Time                 `json:"due_date"`
+	CreatedAt   time.Time                 `json:"created_at"`
+	UpdatedAt   time.Time                 `json:"updated_at"`
+	Events      []TaskSystemEventResponse `json:"events"`
+}
+
+type GetAllTasksResponse struct {
+	Tasks []GetTaskResponse `json:"tasks"`
 }
 
 type CreateTaskRequest struct {
@@ -122,4 +127,20 @@ func (r *UpdateOnReadRequest) Validate() error {
 
 type UpdateOnReadResponse struct {
 	Success bool `json:"success"`
+}
+
+type TaskSystemEventResponse struct {
+	ID            string    `json:"id"`
+	TaskId        string    `json:"task_id"`
+	CorrelationId string    `json:"correlation_id"`
+	Origin        string    `json:"origin"`
+	Action        string    `json:"action"`
+	Message       string    `json:"message"`
+	JsonData      string    `json:"json_data"`
+	EmitAt        time.Time `json:"emit_at"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type GetAllTaskSystemEventsResponse struct {
+	Events []TaskSystemEventResponse `json:"events"`
 }

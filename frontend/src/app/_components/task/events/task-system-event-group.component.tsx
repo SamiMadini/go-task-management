@@ -20,7 +20,7 @@ export default function TaskSystemEventGroupComponent({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div key={group.correlation_id} className="flex flex-col gap-2 space-y-5 p-2">
+      <div key={`${group.correlation_id}-${groupIndex}`} className="flex flex-col gap-2 space-y-5 p-2">
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-2">
             <h4 className="flex flex-row text-sm font-medium gap-3">
@@ -56,7 +56,7 @@ export default function TaskSystemEventGroupComponent({
           <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
             {group.events.length > 0 ? (
               group.events.map((event, index) => (
-                <>
+                <div key={event.id}>
                   {full && index !== 0 && (
                     <div className="flex flex-col items-center justify-center relative">
                       <Separator orientation="vertical" className="mx-2 h-4 bg-muted-foreground/80" />
@@ -64,7 +64,7 @@ export default function TaskSystemEventGroupComponent({
                     </div>
                   )}
 
-                  <div key={event.id} className="rounded-md border p-3 text-sm">
+                  <div className="rounded-md border p-3 text-sm">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{new Date(event.emit_at).toLocaleTimeString()}</span>
@@ -90,7 +90,7 @@ export default function TaskSystemEventGroupComponent({
                     </div>
                     {full && <p className="text-sm">{event.message}</p>}
                   </div>
-                </>
+                </div>
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">

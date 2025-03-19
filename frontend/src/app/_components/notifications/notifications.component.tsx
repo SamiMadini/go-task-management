@@ -17,8 +17,8 @@ export function NotificationsComponent() {
     const fetchNotifications = async () => {
       try {
         const response = await axiosInstance.get("/api/notifications")
-        if (response.data) {
-          setNotifications(response.data)
+        if (response.data && response.data.in_app_notifications) {
+          setNotifications(response.data.in_app_notifications)
         }
       } catch (error) {
         console.error("Error fetching notifications:", error)
@@ -66,7 +66,7 @@ export function NotificationsComponent() {
     <>
       <Button variant="ghost" size="icon" className="text-muted-foreground relative" onClick={() => setNotificationOpen(true)}>
         <Bell className="h-5 w-5" />
-        {notifications.some((notification) => !notification.is_read) && (
+        {notifications?.some((notification) => !notification.is_read) && (
           <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-500 animate-pulse" />
         )}
         <span className="sr-only">Notifications</span>
@@ -87,7 +87,7 @@ export function NotificationsComponent() {
         />
       </SheetRight>
 
-      {/* {notifications.some((notification) => !notification.is_read) && (
+      {/* {notifications?.some((notification) => !notification.is_read) && (
         <div className="fixed top-20 right-6 items-center justify-center flex flex-col transition-all ease-in-out animate-in fade-in duration-1000 fill-mode-forwards">
           <p className="pb-5 text-foreground animate-pulse text-red-500 font-bold">New notifications</p>
           <img src="/arrow-rough-drawig-top-right.png" alt="New notifications" className="w-20 h-20 -rotate-45" />
