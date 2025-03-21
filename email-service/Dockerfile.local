@@ -1,7 +1,25 @@
-FROM golang:1.24-bullseye
+FROM golang:1.24-bullseye AS deps
+
+WORKDIR /deps
+
+# Copy only the files needed for downloading dependencies
+COPY go.work go.work.sum ./
+COPY commons/go.mod commons/go.sum ./commons/
+COPY gateway/go.mod gateway/go.sum ./gateway/
+COPY notifications/go.mod notifications/go.sum ./notifications/
+COPY email-service/src/go.mod email-service/src/go.sum ./email-service/src/
+
+# Download dependencies
+RUN go mod download
+
+FROM golang:1.24-bullseye AS builder
 
 WORKDIR /build
 
+# Copy dependencies from deps stage
+COPY --from=deps /go/pkg /go/pkg
+
+# Copy source code
 COPY commons/ /build/commons/
 COPY gateway/ /build/gateway/
 COPY notifications/ /build/notifications/
@@ -10,12 +28,13 @@ COPY go.work go.work.sum ./
 
 WORKDIR /build/email-service/src
 
-RUN go mod download && CGO_ENABLED=0 go build -o /build/server
+# Build the application
+RUN CGO_ENABLED=0 go build -o /build/server
 
 FROM debian:bullseye-slim
 
 WORKDIR /app
-COPY --from=0 /build/server /app/server
+COPY --from=builder /build/server /app/server
 
 ENV PORT=8080
 ENV POSTGRES_HOST=postgres
