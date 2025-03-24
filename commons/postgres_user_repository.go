@@ -23,6 +23,7 @@ type UserRepositoryInterface interface {
 	GetByID(id string) (User, error)
 	GetByEmail(email string) (User, error)
 	GetByHandle(handle string) (User, error)
+	UpdatePassword(id string, hashedPassword string, salt string) (User, error)
 }
 
 type PostgresUserRepository struct {
@@ -148,5 +149,30 @@ func (r *PostgresUserRepository) GetByHandle(handle string) (User, error) {
 	}
 
 	log.Printf("User retrieved successfully with handle: %s", handle)
+	return user, nil
+}
+
+func (r *PostgresUserRepository) UpdatePassword(id string, hashedPassword string, salt string) (User, error) {
+	var user User
+	query := `
+		UPDATE users 
+		SET password = $1, salt = $2, updated_at = NOW()
+		WHERE id = $3
+		RETURNING id, email, handle, password, salt, status, created_at, updated_at
+	`
+	err := r.DB.QueryRow(query, hashedPassword, salt, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Handle,
+		&user.PasswordHash,
+		&user.Salt,
+		&user.Status,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("Error updating user password: %v", err)
+		return User{}, err
+	}
 	return user, nil
 }

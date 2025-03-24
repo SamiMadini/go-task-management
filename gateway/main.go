@@ -50,9 +50,19 @@ func main() {
 	log.Printf("Connected to database")
 
 	userRepository := commons.NewPostgresUserRepository(database)
-	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(database)
 	taskRepository := commons.NewPostgresTaskRepository(database)
 	taskSystemEventRepository := commons.NewPostgresTaskSystemEventRepository(database)
+	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(database)
+	passwordResetTokenRepository := commons.NewPostgresPasswordResetTokenRepository(database)
+
+	handler := NewHandler(
+		userRepository,
+		taskRepository,
+		taskSystemEventRepository,
+		inAppNotificationRepository,
+		notificationServiceClient,
+		passwordResetTokenRepository,
+	)
 
 	mux := http.NewServeMux()
 
@@ -100,13 +110,6 @@ func main() {
 		})
 	}
 
-	handler := NewHandler(
-		userRepository,
-		taskRepository,
-		taskSystemEventRepository,
-		inAppNotificationRepository,
-		notificationServiceClient,
-	)
 	handler.registerRoutes(mux)
 
 	log.Printf("Starting server on %s", httpAddress)

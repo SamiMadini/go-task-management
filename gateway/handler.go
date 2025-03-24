@@ -14,6 +14,7 @@ type handler struct {
 	taskSystemEventRepository   commons.TaskSystemEventRepositoryInterface
 	notificationServiceClient   pb.NotificationServiceClient
 	userRepository             commons.UserRepositoryInterface
+	passwordResetTokenRepository commons.PasswordResetTokenRepositoryInterface
 }
 
 func NewHandler(
@@ -22,13 +23,15 @@ func NewHandler(
 	taskSystemEventRepository commons.TaskSystemEventRepositoryInterface,
 	inAppNotificationRepository commons.InAppNotificationRepositoryInterface,
 	notificationServiceClient pb.NotificationServiceClient,
+	passwordResetTokenRepository commons.PasswordResetTokenRepositoryInterface,
 ) *handler {
 	return &handler{
-		taskRepository:              taskRepository,
-		inAppNotificationRepository: inAppNotificationRepository,
-		taskSystemEventRepository:   taskSystemEventRepository,
-		notificationServiceClient:   notificationServiceClient,
 		userRepository:             userRepository,
+		taskRepository:            taskRepository,
+		taskSystemEventRepository:  taskSystemEventRepository,
+		inAppNotificationRepository: inAppNotificationRepository,
+		notificationServiceClient:   notificationServiceClient,
+		passwordResetTokenRepository: passwordResetTokenRepository,
 	}
 }
 
@@ -36,28 +39,30 @@ func (h *handler) registerRoutes(mux *http.ServeMux) {
 	log.Println("Registering routes")
 
 	// Health check
-	mux.HandleFunc("GET /api/_health", h.health)
+	mux.HandleFunc("GET /health", h.health)
 
-	// Auth endpoints (no authentication required)
-	mux.HandleFunc("POST /api/auth/signup", h.Signup)
-	mux.HandleFunc("POST /api/auth/signin", h.Signin)
-	mux.HandleFunc("POST /api/auth/refresh", h.RefreshToken)
-	mux.HandleFunc("POST /api/auth/signout", h.Signout)
+	// Auth routes
+	mux.HandleFunc("POST /api/v1/auth/signin", h.Signin)
+	mux.HandleFunc("POST /api/v1/auth/signup", h.Signup)
+	mux.HandleFunc("POST /api/v1/auth/refresh-token", h.RefreshToken)
+	mux.HandleFunc("POST /api/v1/auth/signout", h.Signout)
+	mux.HandleFunc("POST /api/v1/auth/forgot-password", h.ForgotPassword)
+	mux.HandleFunc("POST /api/v1/auth/reset-password", h.ResetPassword)
 
 	// Task endpoints
-	mux.HandleFunc("GET /api/tasks/{id}", h.GetTask)
-	mux.HandleFunc("GET /api/tasks", h.GetAllTasks)
-	mux.HandleFunc("POST /api/tasks", h.CreateTask)
-	mux.HandleFunc("PUT /api/tasks/{id}", h.UpdateTask)
-	mux.HandleFunc("DELETE /api/tasks/{id}", h.DeleteTask)
+	mux.HandleFunc("GET /api/v1/tasks/{id}", h.GetTask)
+	mux.HandleFunc("GET /api/v1/tasks", h.GetAllTasks)
+	mux.HandleFunc("POST /api/v1/tasks", h.CreateTask)
+	mux.HandleFunc("PUT /api/v1/tasks/{id}", h.UpdateTask)
+	mux.HandleFunc("DELETE /api/v1/tasks/{id}", h.DeleteTask)
 
 	// Notification endpoints
-	mux.HandleFunc("GET /api/notifications", h.GetAllInAppNotifications)
-	mux.HandleFunc("POST /api/notifications/{id}/read", h.UpdateOnRead)
-	mux.HandleFunc("DELETE /api/notifications/{id}", h.DeleteInAppNotification)
+	mux.HandleFunc("GET /api/v1/notifications", h.GetAllInAppNotifications)
+	mux.HandleFunc("POST /api/v1/notifications/{id}/read", h.UpdateOnRead)
+	mux.HandleFunc("DELETE /api/v1/notifications/{id}", h.DeleteInAppNotification)
 
 	// System event endpoints
-	mux.HandleFunc("GET /api/task-system-events", h.GetAllTaskSystemEvents)
+	mux.HandleFunc("GET /api/v1/task-system-events", h.GetAllTaskSystemEvents)
 }
 
 func (h *handler) health(w http.ResponseWriter, r *http.Request) {

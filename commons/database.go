@@ -52,6 +52,24 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Create password_reset_tokens table
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		token TEXT NOT NULL,
+		expires_at TIMESTAMP NOT NULL,
+		used BOOLEAN NOT NULL DEFAULT FALSE,
+		created_at TIMESTAMP NOT NULL,
+		CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id)
+			REFERENCES users(id) ON DELETE CASCADE
+	)
+	`)
+	if err != nil {
+		log.Printf("Error creating password_reset_tokens table: %v", err)
+		return nil, err
+	}
+
 	// Create tasks table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tasks (
