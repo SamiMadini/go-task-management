@@ -104,7 +104,9 @@ func main() {
 
 	log.Printf("Starting server on %s", httpAddress)
 
-	if err := http.ListenAndServe(httpAddress, corsMiddleware(mux)); err != nil {
+	chainMiddlewares := corsMiddleware(AuthMiddleware(mux))
+
+	if err := http.ListenAndServe(httpAddress, chainMiddlewares); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -1,11 +1,11 @@
 package main
 
 import (
-    "log"
-    "net/http"
+	"log"
+	"net/http"
 
-    commons "sama/go-task-management/commons"
-    pb "sama/go-task-management/commons/api"
+	commons "sama/go-task-management/commons"
+	pb "sama/go-task-management/commons/api"
 )
 
 type handler struct {
@@ -34,6 +34,10 @@ func (h *handler) registerRoutes(mux *http.ServeMux) {
 
     // Health check
     mux.HandleFunc("GET /api/_health", h.health)
+
+    // Auth endpoints (no authentication required)
+    mux.HandleFunc("POST /api/auth/token", handleGenerateToken)
+    mux.HandleFunc("POST /api/auth/refresh", handleRefreshToken)
 
     // Task endpoints
     mux.HandleFunc("GET /api/tasks/{id}", h.GetTask)
