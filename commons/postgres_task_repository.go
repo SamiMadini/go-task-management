@@ -2,6 +2,7 @@ package commons
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"time"
 )
@@ -9,6 +10,8 @@ import (
 // @Description Task model
 type Task struct {
 	ID          string            `json:"id"`
+	CreatorID   string            `json:"creator_id"`
+	AssigneeID  *string           `json:"assignee_id,omitempty"`
 	Title       string            `json:"title"`
 	Description string            `json:"description"`
 	Status      string            `json:"status"` // "todo", "in-progress", "done"
@@ -26,6 +29,7 @@ type Task struct {
 type TaskRepositoryInterface interface {
 	GetAll() ([]Task, error)
 	GetByID(id string) (Task, error)
+	GetByUserID(userID string) ([]Task, error)
 	Create(task Task) (Task, error)
 	Update(task Task) error
 	Delete(id string) error
@@ -46,9 +50,9 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 	// Single query with LEFT JOIN to get tasks with their events
 	rows, err := r.DB.Query(`
 		SELECT 
-			t.id, t.title, t.description, t.status, t.priority, 
+			t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority,
 			t.email_sent, t.in_app_sent, t.due_date, t.created_at, t.updated_at, t.deleted, t.deleted_at,
-			e.id, e.task_id, e.correlation_id, e.origin, e.action, 
+			e.id, e.task_id, e.correlation_id, e.origin, e.action,
 			e.message, e.json_data, e.emit_at, e.created_at
 		FROM tasks t
 		LEFT JOIN task_system_events e ON t.id = e.task_id
@@ -66,13 +70,16 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 	for rows.Next() {
 		var task Task
 		var dueDate sql.NullTime
-		
+		var assigneeID sql.NullString
+
 		// For event fields - all are nullable because of LEFT JOIN
 		var eventID, eventTaskId, eventCorrelationId, eventOrigin, eventAction, eventMessage, eventJsonData sql.NullString
 		var eventEmitAt, eventCreatedAt sql.NullTime
-		
+
 		err := rows.Scan(
 			&task.ID,
+			&task.CreatorID,
+			&assigneeID,
 			&task.Title,
 			&task.Description,
 			&task.Status,
@@ -102,18 +109,19 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 		if dueDate.Valid {
 			task.DueDate = dueDate.Time
 		}
-		
-		// Check if we've seen this task before
+
+		if assigneeID.Valid {
+			task.AssigneeID = &assigneeID.String
+		}
+
 		existingTask, exists := tasksMap[task.ID]
 		if !exists {
-			// First time seeing this task
-			task.Events = []TaskSystemEvent{} // Initialize empty events slice
+			task.Events = []TaskSystemEvent{}
 			tasks = append(tasks, task)
 			tasksMap[task.ID] = &tasks[len(tasks)-1]
 			existingTask = &tasks[len(tasks)-1]
 		}
-		
-		// Add event to the task if one exists for this row
+
 		if eventID.Valid {
 			event := TaskSystemEvent{
 				ID:            eventID.String,
@@ -145,7 +153,7 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 	// Single query with LEFT JOIN to get task with events
 	rows, err := r.DB.Query(`
 		SELECT 
-			t.id, t.title, t.description, t.status, t.priority, 
+			t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority,
 			t.email_sent, t.in_app_sent, t.due_date, t.created_at, t.updated_at, t.deleted, t.deleted_at,
 			e.id, e.task_id, e.correlation_id, e.origin, e.action, e.message, e.json_data, e.emit_at, e.created_at
 		FROM tasks t
@@ -165,13 +173,15 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 
 	for rows.Next() {
 		var dueDate sql.NullTime
-		
-		// For event fields
+		var assigneeID sql.NullString
+
 		var eventID, eventTaskID, eventCorrelationID, eventOrigin, eventAction, eventMessage, eventJsonData sql.NullString
 		var eventEmitAt, eventCreatedAt sql.NullTime
-		
+
 		err := rows.Scan(
 			&task.ID,
+			&task.CreatorID,
+			&assigneeID,
 			&task.Title,
 			&task.Description,
 			&task.Status,
@@ -201,14 +211,16 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 		if dueDate.Valid {
 			task.DueDate = dueDate.Time
 		}
-		
-		// Initialize the events slice if this is the first row
+
+		if assigneeID.Valid {
+			task.AssigneeID = &assigneeID.String
+		}
+
 		if !found {
 			task.Events = []TaskSystemEvent{}
 			found = true
 		}
-		
-		// Add event to the task if one exists for this row
+
 		if eventID.Valid && eventTaskID.Valid {
 			event := TaskSystemEvent{
 				ID:            eventID.String,
@@ -219,15 +231,15 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 				Message:       eventMessage.String,
 				JsonData:      eventJsonData.String,
 			}
-			
+
 			if eventEmitAt.Valid {
 				event.EmitAt = eventEmitAt.Time
 			}
-			
+
 			if eventCreatedAt.Valid {
 				event.CreatedAt = eventCreatedAt.Time
 			}
-			
+
 			task.Events = append(task.Events, event)
 		}
 	}
@@ -245,12 +257,78 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 	return task, nil
 }
 
+func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
+	rows, err := r.DB.Query(`
+		SELECT t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority, t.due_date, t.created_at, t.updated_at,
+			json_agg(json_build_object(
+				'id', e.id,
+				'task_id', e.task_id,
+				'correlation_id', e.correlation_id,
+				'origin', e.origin,
+				'action', e.action,
+				'message', e.message,
+				'json_data', e.json_data,
+				'emit_at', e.emit_at,
+				'created_at', e.created_at
+			)) as events
+		FROM tasks t
+		LEFT JOIN task_system_events e ON t.id = e.task_id
+		WHERE t.creator_id = $1 OR t.assignee_id = $1
+		GROUP BY t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority, t.due_date, t.created_at, t.updated_at
+		ORDER BY t.created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []Task
+	for rows.Next() {
+		var task Task
+		var eventsJSON []byte
+		var assigneeID sql.NullString
+
+		err := rows.Scan(
+			&task.ID,
+			&task.CreatorID,
+			&assigneeID,
+			&task.Title,
+			&task.Description,
+			&task.Status,
+			&task.Priority,
+			&task.DueDate,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&eventsJSON,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if assigneeID.Valid {
+			task.AssigneeID = &assigneeID.String
+		}
+
+		if eventsJSON != nil {
+			if err := json.Unmarshal(eventsJSON, &task.Events); err != nil {
+				return nil, err
+			}
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
 func (r *PostgresTaskRepository) Create(task Task) (Task, error) {
 	_, err := r.DB.Exec(`
-		INSERT INTO tasks (id, title, description, status, priority, email_sent, in_app_sent, due_date, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO tasks (id, creator_id, assignee_id, title, description, status, priority, email_sent, in_app_sent, due_date, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`,
 		task.ID,
+		task.CreatorID,
+		task.AssigneeID,
 		task.Title,
 		task.Description,
 		task.Status,
@@ -274,8 +352,8 @@ func (r *PostgresTaskRepository) Update(task Task) error {
 	
 	_, err := r.DB.Exec(`
 		UPDATE tasks 
-		SET title = $1, description = $2, status = $3, priority = $4, email_sent = $5, in_app_sent = $6, due_date = $7, updated_at = $8
-		WHERE id = $9
+		SET title = $1, description = $2, status = $3, priority = $4, email_sent = $5, in_app_sent = $6, due_date = $7, assignee_id = $8, updated_at = $9
+		WHERE id = $10
 	`,
 		task.Title,
 		task.Description,
@@ -284,6 +362,7 @@ func (r *PostgresTaskRepository) Update(task Task) error {
 		task.EmailSent,
 		task.InAppSent,
 		task.DueDate,
+		task.AssigneeID,
 		task.UpdatedAt,
 		task.ID,
 	)
@@ -321,4 +400,4 @@ func (r *PostgresTaskRepository) HardDelete(id string) error {
 		log.Printf("Task with ID %s hard deleted successfully", id)
 	}
 	return err
-} 
+}

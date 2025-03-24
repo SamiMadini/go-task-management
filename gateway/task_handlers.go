@@ -24,59 +24,92 @@ import (
 // @Success 200 {object} GetTaskResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks/{id} [get]
 func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    if id == "" {
-        commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
-        return
-    }
+	id := r.PathValue("id")
+	if id == "" {
+		commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
+		return
+	}
 
-    if !commons.IsValidUUID(id) {
-        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
-        return
-    }
+	if !commons.IsValidUUID(id) {
+		commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
+		return
+	}
 
-    task, err := h.taskRepository.GetByID(id)
-    if err != nil {
-        log.Printf("Error fetching task %s: %v", id, err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	task, err := h.taskRepository.GetByID(id)
+	if err != nil {
+		log.Printf("Error fetching task %s: %v", id, err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    events := make([]TaskSystemEventResponse, len(task.Events))
-    for i, event := range task.Events {
-        events[i] = TaskSystemEventResponse{
-            ID:            event.ID,
-            TaskId:        event.TaskId,
-            CorrelationId: event.CorrelationId,
-            Origin:        event.Origin,
-            Action:        event.Action,
-            Message:       event.Message,
-            JsonData:      event.JsonData,
-            EmitAt:        event.EmitAt,
-            CreatedAt:     event.CreatedAt,
-        }
-    }
+	// Check if user has permission to view the task
+	userID := GetUserIDFromContext(r)
+	if userID != task.CreatorID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
+		commons.WriteJSONError(w, http.StatusForbidden, "You don't have permission to view this task")
+		return
+	}
 
-    response := GetTaskResponse{
-        ID:          task.ID,
-        Title:       task.Title,
-        Description: task.Description,
-        Status:      task.Status,
-        Priority:    task.Priority,
-        DueDate:     task.DueDate,
-        CreatedAt:   task.CreatedAt,
-        UpdatedAt:   task.UpdatedAt,
-        Events:      events,
-    }
+	// Get creator and assignee details
+	creator, err := h.userRepository.GetByID(task.CreatorID)
+	if err != nil {
+		log.Printf("Error fetching creator details: %v", err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    commons.WriteJSON(w, http.StatusOK, response)
+	var assignee *commons.User
+	if task.AssigneeID != nil {
+		assigneeUser, err := h.userRepository.GetByID(*task.AssigneeID)
+		if err != nil {
+			log.Printf("Error fetching assignee details: %v", err)
+			commons.InternalServerErrorHandler(w)
+			return
+		}
+		assignee = &assigneeUser
+	}
+
+	events := make([]TaskSystemEventResponse, len(task.Events))
+	for i, event := range task.Events {
+		events[i] = TaskSystemEventResponse{
+			ID:            event.ID,
+			TaskId:        event.TaskId,
+			CorrelationId: event.CorrelationId,
+			Origin:        event.Origin,
+			Action:        event.Action,
+			Message:       event.Message,
+			JsonData:      event.JsonData,
+			EmitAt:        event.EmitAt,
+			CreatedAt:     event.CreatedAt,
+		}
+	}
+
+	response := GetTaskResponse{
+		ID:          task.ID,
+		Title:       task.Title,
+		Description: task.Description,
+		Status:      task.Status,
+		Priority:    task.Priority,
+		DueDate:     task.DueDate,
+		CreatedAt:   task.CreatedAt,
+		UpdatedAt:   task.UpdatedAt,
+		Creator:     UserResponse{ID: creator.ID, Handle: creator.Handle, Email: creator.Email},
+		Assignee:    nil,
+		Events:      events,
+	}
+
+	if assignee != nil {
+		response.Assignee = &UserResponse{ID: assignee.ID, Handle: assignee.Handle, Email: assignee.Email}
+	}
+
+	commons.WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary Get all tasks
-// @Description Retrieves all tasks in the system
+// @Description Retrieves all tasks for the current user (created or assigned)
 // @Tags tasks
 // @Accept json
 // @Produce json
@@ -84,54 +117,93 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks [get]
 func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
-    tasks, err := h.taskRepository.GetAll()
-    if err != nil {
-        log.Printf("Failed to get all tasks: %v", err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if len(tasks) == 0 {
-        commons.WriteJSON(w, http.StatusOK, GetAllTasksResponse{
-            Tasks: []GetTaskResponse{},
-        })
-        return
-    }
+	tasks, err := h.taskRepository.GetByUserID(userID)
+	if err != nil {
+		log.Printf("Failed to get tasks for user %s: %v", userID, err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    response := GetAllTasksResponse{
-        Tasks: make([]GetTaskResponse, len(tasks)),
-    }
+	if len(tasks) == 0 {
+		commons.WriteJSON(w, http.StatusOK, GetAllTasksResponse{
+			Tasks: []GetTaskResponse{},
+		})
+		return
+	}
 
-    for i, task := range tasks {
-        events := make([]TaskSystemEventResponse, len(task.Events))
-        for j, event := range task.Events {
-            events[j] = TaskSystemEventResponse{
-                ID:            event.ID,
-                TaskId:        event.TaskId,
-                CorrelationId: event.CorrelationId,
-                Origin:        event.Origin,
-                Action:        event.Action,
-                Message:       event.Message,
-                JsonData:      event.JsonData,
-                EmitAt:        event.EmitAt,
-                CreatedAt:     event.CreatedAt,
-            }
-        }
+	response := GetAllTasksResponse{
+		Tasks: make([]GetTaskResponse, len(tasks)),
+	}
 
-        response.Tasks[i] = GetTaskResponse{
-            ID:          task.ID,
-            Title:       task.Title,
-            Description: task.Description,
-            Status:      task.Status,
-            Priority:    task.Priority,
-            DueDate:     task.DueDate,
-            CreatedAt:   task.CreatedAt,
-            UpdatedAt:   task.UpdatedAt,
-            Events:      events,
-        }
-    }
+	for i, t := range tasks {
+		// Get creator details
+		creator, err := h.userRepository.GetByID(t.CreatorID)
+		if err != nil {
+			log.Printf("Failed to get creator details for task %s: %v", t.ID, err)
+			commons.InternalServerErrorHandler(w)
+			return
+		}
 
-    commons.WriteJSON(w, http.StatusOK, response)
+		// Get assignee details if exists
+		var assignee *commons.User
+		if t.AssigneeID != nil {
+			assigneeUser, err := h.userRepository.GetByID(*t.AssigneeID)
+			if err != nil {
+				log.Printf("Failed to get assignee details for task %s: %v", t.ID, err)
+				commons.InternalServerErrorHandler(w)
+				return
+			}
+			assignee = &assigneeUser
+		}
+
+		events := make([]TaskSystemEventResponse, len(t.Events))
+		for j, event := range t.Events {
+			events[j] = TaskSystemEventResponse{
+				ID:            event.ID,
+				TaskId:        event.TaskId,
+				CorrelationId: event.CorrelationId,
+				Origin:        event.Origin,
+				Action:        event.Action,
+				Message:       event.Message,
+				JsonData:      event.JsonData,
+				EmitAt:        event.EmitAt,
+				CreatedAt:     event.CreatedAt,
+			}
+		}
+
+		response.Tasks[i] = GetTaskResponse{
+			ID:          t.ID,
+			Title:       t.Title,
+			Description: t.Description,
+			Status:      t.Status,
+			Priority:    t.Priority,
+			DueDate:     t.DueDate,
+			CreatedAt:   t.CreatedAt,
+			UpdatedAt:   t.UpdatedAt,
+			Creator: UserResponse{
+				ID:    creator.ID,
+				Handle: creator.Handle,
+				Email:  creator.Email,
+			},
+			Events: events,
+		}
+
+		if assignee != nil {
+			response.Tasks[i].Assignee = &UserResponse{
+				ID:    assignee.ID,
+				Handle: assignee.Handle,
+				Email:  assignee.Email,
+			}
+		}
+	}
+
+	commons.WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary Create a new task
@@ -145,130 +217,138 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks [post]
 func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
-    var params CreateTaskRequest
-    if err := commons.ReadJSON(r, &params); err != nil {
-        log.Printf("Invalid task creation request: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if err := params.Validate(); err != nil {
-        log.Printf("Validation error: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
-        return
-    }
+	var params CreateTaskRequest
+	if err := commons.ReadJSON(r, &params); err != nil {
+		log.Printf("Invalid task creation request: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
 
-    now := time.Now()
-    taskId := uuid.New().String()
-    correlationId := uuid.New().String()
+	if err := params.Validate(); err != nil {
+		log.Printf("Validation error: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-    task := commons.Task{
-        ID:          taskId,
-        Title:       params.Title,
-        Description: params.Description,
-        Status:      params.Status,
-        Priority:    params.Priority,
-        DueDate:     parseDueDate(params.DueDate, now),
-        CreatedAt:   now,
-        UpdatedAt:   now,
-    }
+	now := time.Now()
+	taskId := uuid.New().String()
+	correlationId := uuid.New().String()
 
-    var result commons.Task
-    result, err := h.taskRepository.Create(task)
-    if err != nil {
-        log.Printf("Error creating task: %v", err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
-    task = result
+	task := commons.Task{
+		ID:          taskId,
+		CreatorID:   userID,
+		AssigneeID:  params.AssigneeID,
+		Title:       params.Title,
+		Description: params.Description,
+		Status:      params.Status,
+		Priority:    params.Priority,
+		DueDate:     parseDueDate(params.DueDate, now),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
 
-    var wg sync.WaitGroup
-    var eventErr error
+	var result commons.Task
+	result, err := h.taskRepository.Create(task)
+	if err != nil {
+		log.Printf("Error creating task: %v", err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
+	task = result
 
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        requestEvent := createTaskSystemEvent(
-            taskId,
-            correlationId,
-            "API Gateway",
-            "api:request:received",
-            "Task creation request received",
-            marshallJson(params),
-        )
-        _, err := h.taskSystemEventRepository.Create(requestEvent, 1)
-        if err != nil {
-            log.Printf("Error creating request event: %v", err)
-            eventErr = err
-        }
-    }()
+	var wg sync.WaitGroup
+	var eventErr error
 
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        createdEvent := createTaskSystemEvent(
-            taskId,
-            correlationId,
-            "API Gateway",
-            "api:db:task-created",
-            "Task created in database",
-            "{}",
-        )
-        _, err := h.taskSystemEventRepository.Create(createdEvent, 2)
-        if err != nil {
-            log.Printf("Error creating task created event: %v", err)
-            eventErr = err
-        }
-    }()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		requestEvent := createTaskSystemEvent(
+			taskId,
+			correlationId,
+			"API Gateway",
+			"api:request:received",
+			"Task creation request received",
+			marshallJson(params),
+		)
+		_, err := h.taskSystemEventRepository.Create(requestEvent, 1)
+		if err != nil {
+			log.Printf("Error creating request event: %v", err)
+			eventErr = err
+		}
+	}()
 
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        ctx, cancel := context.WithTimeout(context.Background(), notificationTimeout)
-        defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		createdEvent := createTaskSystemEvent(
+			taskId,
+			correlationId,
+			"API Gateway",
+			"api:db:task-created",
+			"Task created in database",
+			"{}",
+		)
+		_, err := h.taskSystemEventRepository.Create(createdEvent, 2)
+		if err != nil {
+			log.Printf("Error creating task created event: %v", err)
+			eventErr = err
+		}
+	}()
 
-        _, err := h.notificationServiceClient.SendNotification(
-            ctx,
-            &pb.SendNotificationRequest{
-                TaskId:        taskId,
-                CorrelationId: correlationId,
-                Types:         []pb.NotificationType{0, 1},
-            },
-            grpc.FailFastCallOption{},
-        )
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), notificationTimeout)
+		defer cancel()
 
-        notificationEvent := createTaskSystemEvent(
-            taskId,
-            correlationId,
-            "API Gateway",
-            "api:event:task-created",
-            "Task created event emitted",
-            "{}",
-        )
+		_, err := h.notificationServiceClient.SendNotification(
+			ctx,
+			&pb.SendNotificationRequest{
+				TaskId:        taskId,
+				CorrelationId: correlationId,
+				Types:         []pb.NotificationType{0, 1},
+			},
+			grpc.FailFastCallOption{},
+		)
 
-        _, eventErr := h.taskSystemEventRepository.Create(notificationEvent, 3)
-        if eventErr != nil {
-            log.Printf("Error creating notification event: %v", eventErr)
-            eventErr = err
-        }
+		notificationEvent := createTaskSystemEvent(
+			taskId,
+			correlationId,
+			"API Gateway",
+			"api:event:task-created",
+			"Task created event emitted",
+			"{}",
+		)
 
-        if err != nil {
-            log.Printf("Failed to send notification: %v", err)
-            eventErr = err
-        } else {
-            log.Printf("Notification sent successfully")
-        }
-    }()
+		_, eventErr := h.taskSystemEventRepository.Create(notificationEvent, 3)
+		if eventErr != nil {
+			log.Printf("Error creating notification event: %v", eventErr)
+			eventErr = err
+		}
 
-    wg.Wait()
+		if err != nil {
+			log.Printf("Failed to send notification: %v", err)
+			eventErr = err
+		} else {
+			log.Printf("Notification sent successfully")
+		}
+	}()
 
-    if eventErr != nil {
-        log.Printf("Some events failed to be created: %v", eventErr)
-    }
+	wg.Wait()
 
-    commons.WriteJSON(w, http.StatusCreated, CreateTaskResponse{
-        TaskId: task.ID,
-    })
+	if eventErr != nil {
+		log.Printf("Some events failed to be created: %v", eventErr)
+	}
+
+	commons.WriteJSON(w, http.StatusCreated, CreateTaskResponse{
+		TaskId: task.ID,
+	})
 }
 
 // @Summary Update a task
@@ -281,75 +361,86 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} UpdateTaskResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks/{id} [put]
 func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    if id == "" {
-        commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if !commons.IsValidUUID(id) {
-        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
-        return
-    }
+	id := r.PathValue("id")
+	if id == "" {
+		commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
+		return
+	}
 
-    _, err := h.taskRepository.GetByID(id)
-    if err != nil {
-        log.Printf("Error fetching task %s: %v", id, err)
-        commons.WriteJSONError(w, http.StatusNotFound, "task not found")
-        return
-    }
+	if !commons.IsValidUUID(id) {
+		commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
+		return
+	}
 
-    var params UpdateTaskRequest
-    if err := commons.ReadJSON(r, &params); err != nil {
-        log.Printf("Invalid task update request: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
-        return
-    }
+	task, err := h.taskRepository.GetByID(id)
+	if err != nil {
+		log.Printf("Error fetching task %s: %v", id, err)
+		commons.WriteJSONError(w, http.StatusNotFound, "task not found")
+		return
+	}
 
-    if err := params.Validate(); err != nil {
-        log.Printf("Validation error: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
-        return
-    }
+	// Check if user has permission to update the task
+	if userID != task.CreatorID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
+		commons.WriteJSONError(w, http.StatusForbidden, "You don't have permission to update this task")
+		return
+	}
 
-    now := time.Now()
-    task := commons.Task{
-        ID:          id,
-        Title:       params.Title,
-        Description: params.Description,
-        Status:      params.Status,
-        Priority:    params.Priority,
-        DueDate:     parseDueDate(params.DueDate, time.Time{}),
-        UpdatedAt:   now,
-    }
+	var params UpdateTaskRequest
+	if err := commons.ReadJSON(r, &params); err != nil {
+		log.Printf("Invalid task update request: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
 
-    if err := h.taskRepository.Update(task); err != nil {
-        log.Printf("Error updating task %s: %v", id, err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	if err := params.Validate(); err != nil {
+		log.Printf("Validation error: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-    correlationId := uuid.New().String()
-    event := createTaskSystemEvent(
-        id,
-        correlationId,
-        "API Gateway",
-        "api:event:task-updated",
-        "Task updated event emitted",
-        "{}",
-    )
+	now := time.Now()
+	task.Title = params.Title
+	task.Description = params.Description
+	task.Status = params.Status
+	task.Priority = params.Priority
+	task.DueDate = parseDueDate(params.DueDate, time.Time{})
+	task.AssigneeID = params.AssigneeID
+	task.UpdatedAt = now
 
-    _, err = h.taskSystemEventRepository.Create(event, 1)
-    if err != nil {
-        log.Printf("Error creating task updated event: %v", err)
-    }
+	if err := h.taskRepository.Update(task); err != nil {
+		log.Printf("Error updating task %s: %v", id, err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    commons.WriteJSON(w, http.StatusOK, UpdateTaskResponse{
-        TaskId: id,
-    })
+	correlationId := uuid.New().String()
+	event := createTaskSystemEvent(
+		id,
+		correlationId,
+		"API Gateway",
+		"api:event:task-updated",
+		"Task updated event emitted",
+		"{}",
+	)
+
+	_, err = h.taskSystemEventRepository.Create(event, 1)
+	if err != nil {
+		log.Printf("Error creating task updated event: %v", err)
+	}
+
+	commons.WriteJSON(w, http.StatusOK, UpdateTaskResponse{
+		TaskId: id,
+	})
 }
 
 // @Summary Delete a task
@@ -364,46 +455,46 @@ func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks/{id} [delete]
 func (h *handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    if id == "" {
-        commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
-        return
-    }
+	id := r.PathValue("id")
+	if id == "" {
+		commons.WriteJSONError(w, http.StatusBadRequest, "task ID is required")
+		return
+	}
 
-    if !commons.IsValidUUID(id) {
-        commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
-        return
-    }
+	if !commons.IsValidUUID(id) {
+		commons.WriteJSONError(w, http.StatusBadRequest, "invalid task ID format")
+		return
+	}
 
-    _, err := h.taskRepository.GetByID(id)
-    if err != nil {
-        log.Printf("Error fetching task %s: %v", id, err)
-        commons.WriteJSONError(w, http.StatusNotFound, "task not found")
-        return
-    }
+	_, err := h.taskRepository.GetByID(id)
+	if err != nil {
+		log.Printf("Error fetching task %s: %v", id, err)
+		commons.WriteJSONError(w, http.StatusNotFound, "task not found")
+		return
+	}
 
-    if err := h.taskRepository.Delete(id); err != nil {
-        log.Printf("Error deleting task %s: %v", id, err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	if err := h.taskRepository.Delete(id); err != nil {
+		log.Printf("Error deleting task %s: %v", id, err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    correlationId := uuid.New().String()
-    event := createTaskSystemEvent(
-        id,
-        correlationId,
-        "API Gateway",
-        "api:event:task-deleted",
-        "Task deleted event emitted",
-        "{}",
-    )
+	correlationId := uuid.New().String()
+	event := createTaskSystemEvent(
+		id,
+		correlationId,
+		"API Gateway",
+		"api:event:task-deleted",
+		"Task deleted event emitted",
+		"{}",
+	)
 
-    _, err = h.taskSystemEventRepository.Create(event, 1)
-    if err != nil {
-        log.Printf("Error creating task deleted event: %v", err)
-    }
+	_, err = h.taskSystemEventRepository.Create(event, 1)
+	if err != nil {
+		log.Printf("Error creating task deleted event: %v", err)
+	}
 
-    commons.WriteJSON(w, http.StatusOK, map[string]bool{
-        "success": true,
-    })
+	commons.WriteJSON(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
 }

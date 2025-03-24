@@ -34,10 +34,30 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Create users table
+	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		handle VARCHAR(50) UNIQUE NOT NULL,
+		email VARCHAR(255) UNIQUE NOT NULL,
+		password_hash VARCHAR(255) NOT NULL,
+		salt VARCHAR(32) NOT NULL,
+		status VARCHAR(20) NOT NULL DEFAULT 'active',
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL
+	)
+	`)
+	if err != nil {
+		log.Printf("Error creating users table: %v", err)
+		return nil, err
+	}
+
 	// Create tasks table
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS tasks (
 		id TEXT PRIMARY KEY,
+		creator_id TEXT NOT NULL,
+		assignee_id TEXT,
 		title TEXT NOT NULL,
 		description TEXT,
 		status TEXT NOT NULL,
@@ -48,7 +68,11 @@ func InitDB() (*sql.DB, error) {
 		deleted BOOLEAN NOT NULL DEFAULT FALSE,
 		deleted_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
-		updated_at TIMESTAMP NOT NULL
+		updated_at TIMESTAMP NOT NULL,
+		CONSTRAINT fk_tasks_creator FOREIGN KEY (creator_id)
+			REFERENCES users(id) ON DELETE RESTRICT,
+		CONSTRAINT fk_tasks_assignee FOREIGN KEY (assignee_id)
+			REFERENCES users(id) ON DELETE SET NULL
 	)
 	`)
 	if err != nil {
@@ -60,6 +84,7 @@ func InitDB() (*sql.DB, error) {
 	_, err = db.Exec(`
 	CREATE TABLE IF NOT EXISTS in_app_notifications (
 		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
 		title TEXT NOT NULL,
 		description TEXT,
 		is_read BOOLEAN NOT NULL DEFAULT FALSE,
@@ -67,7 +92,9 @@ func InitDB() (*sql.DB, error) {
 		deleted BOOLEAN NOT NULL DEFAULT FALSE,
 		deleted_at TIMESTAMP,
 		created_at TIMESTAMP NOT NULL,
-		updated_at TIMESTAMP NOT NULL
+		updated_at TIMESTAMP NOT NULL,
+		CONSTRAINT fk_notifications_user FOREIGN KEY (user_id)
+			REFERENCES users(id) ON DELETE CASCADE
 	)
 	`)
 	if err != nil {
@@ -86,10 +113,9 @@ func InitDB() (*sql.DB, error) {
 		message TEXT NOT NULL,
 		json_data TEXT,
 		emit_at TIMESTAMP NOT NULL,
-		created_at TIMESTAMP NOT NULL
-	,
-	CONSTRAINT fk_task_system_events_task FOREIGN KEY (task_id) 
-		REFERENCES tasks(id) ON DELETE CASCADE
+		created_at TIMESTAMP NOT NULL,
+		CONSTRAINT fk_task_system_events_task FOREIGN KEY (task_id)
+			REFERENCES tasks(id) ON DELETE CASCADE
 	)
 	`)
 	if err != nil {
@@ -97,22 +123,49 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Index on tasks.status
+	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create unique index on users.email: %v", err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_handle ON users(handle)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create index on users.handle: %v", err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create index on users.status: %v", err)
+	}
+
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`)
 	if err != nil {
 		log.Printf("Warning: Failed to create index on tasks.status: %v", err)
 	}
 
-	// Index on tasks.due_date
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)`)
 	if err != nil {
 		log.Printf("Warning: Failed to create index on tasks.due_date: %v", err)
 	}
 
-	// Index on in_app_notifications.is_read
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_creator ON tasks(creator_id)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create index on tasks.creator_id: %v", err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee_id)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create index on tasks.assignee_id: %v", err)
+	}
+
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON in_app_notifications(is_read)`)
 	if err != nil {
 		log.Printf("Warning: Failed to create index on in_app_notifications.is_read: %v", err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON in_app_notifications(user_id)`)
+	if err != nil {
+		log.Printf("Warning: Failed to create index on in_app_notifications.user_id: %v", err)
 	}
 
 	log.Println("PostgreSQL database initialized successfully")

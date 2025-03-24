@@ -50,7 +50,7 @@ func (r *SQLiteInAppNotificationRepository) GetAll() ([]InAppNotification, error
 	for rows.Next() {
 		var inAppNotification InAppNotification
 		var createdAtStr, updatedAtStr string
-		
+
 		err := rows.Scan(
 			&inAppNotification.ID,
 			&inAppNotification.Title,
@@ -76,7 +76,7 @@ func (r *SQLiteInAppNotificationRepository) GetAll() ([]InAppNotification, error
 func (r *SQLiteInAppNotificationRepository) GetByID(id string) (InAppNotification, error) {
 	var inAppNotification InAppNotification
 	var createdAtStr, updatedAtStr string
-	
+
 	err := r.DB.QueryRow(`
 		SELECT id, title, description, is_read, read_at, created_at, updated_at
 		FROM in_app_notifications WHERE id = ?

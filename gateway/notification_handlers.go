@@ -17,41 +17,47 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications [get]
 func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Request) {
-    notifications, err := h.inAppNotificationRepository.GetAll()
-    if err != nil {
-        log.Printf("Failed to get all notifications: %v", err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if len(notifications) == 0 {
-        commons.WriteJSON(w, http.StatusOK, GetAllInAppNotificationsResponse{
-            InAppNotifications: []InAppNotificationResponse{},
-        })
-        return
-    }
+	notifications, err := h.inAppNotificationRepository.GetByUserID(userID)
+	if err != nil {
+		log.Printf("Failed to get notifications for user %s: %v", userID, err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
 
-    response := GetAllInAppNotificationsResponse{
-        InAppNotifications: make([]InAppNotificationResponse, len(notifications)),
-    }
+	if len(notifications) == 0 {
+		commons.WriteJSON(w, http.StatusOK, GetAllInAppNotificationsResponse{
+			InAppNotifications: []InAppNotificationResponse{},
+		})
+		return
+	}
 
-    for i, n := range notifications {
-        var readAt time.Time
-        if n.ReadAt != nil {
-            readAt = *n.ReadAt
-        }
-        response.InAppNotifications[i] = InAppNotificationResponse{
-            ID:          n.ID,
-            Title:       n.Title,
-            Description: n.Description,
-            IsRead:      n.IsRead,
-            ReadAt:      readAt,
-            CreatedAt:   n.CreatedAt,
-            UpdatedAt:   n.UpdatedAt,
-        }
-    }
+	response := GetAllInAppNotificationsResponse{
+		InAppNotifications: make([]InAppNotificationResponse, len(notifications)),
+	}
 
-    commons.WriteJSON(w, http.StatusOK, response)
+	for i, n := range notifications {
+		var readAt time.Time
+		if n.ReadAt != nil {
+			readAt = *n.ReadAt
+		}
+		response.InAppNotifications[i] = InAppNotificationResponse{
+			ID:          n.ID,
+			Title:       n.Title,
+			Description: n.Description,
+			IsRead:      n.IsRead,
+			ReadAt:      readAt,
+			CreatedAt:   n.CreatedAt,
+			UpdatedAt:   n.UpdatedAt,
+		}
+	}
+
+	commons.WriteJSON(w, http.StatusOK, response)
 }
 
 // @Summary Mark notification as read
@@ -63,49 +69,62 @@ func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Reques
 // @Success 200 {object} UpdateOnReadResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications/{id}/read [put]
 func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    if id == "" {
-        commons.WriteJSONError(w, http.StatusBadRequest, "notification ID is required")
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if !commons.IsValidUUID(id) {
-        commons.WriteJSONError(w, http.StatusBadRequest, "invalid notification ID format")
-        return
-    }
+	id := r.PathValue("id")
+	if id == "" {
+		commons.WriteJSONError(w, http.StatusBadRequest, "notification ID is required")
+		return
+	}
 
-    _, err := h.inAppNotificationRepository.GetByID(id)
-    if err != nil {
-        log.Printf("Error fetching notification %s: %v", id, err)
-        commons.WriteJSONError(w, http.StatusNotFound, "notification not found")
-        return
-    }
+	if !commons.IsValidUUID(id) {
+		commons.WriteJSONError(w, http.StatusBadRequest, "invalid notification ID format")
+		return
+	}
 
-    var params UpdateOnReadRequest
-    if err := commons.ReadJSON(r, &params); err != nil {
-        log.Printf("Invalid read update request: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
-        return
-    }
+	notification, err := h.inAppNotificationRepository.GetByID(id)
+	if err != nil {
+		log.Printf("Error fetching notification %s: %v", id, err)
+		commons.WriteJSONError(w, http.StatusNotFound, "notification not found")
+		return
+	}
 
-    if err := params.Validate(); err != nil {
-        log.Printf("Validation error: %v", err)
-        commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
-        return
-    }
+	// Check if user has permission to update this notification
+	if notification.UserID != userID {
+		commons.WriteJSONError(w, http.StatusForbidden, "You don't have permission to update this notification")
+		return
+	}
 
-    if err := h.inAppNotificationRepository.UpdateOnRead(id, params.IsRead); err != nil {
-        log.Printf("Error updating notification read status: %v", err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	var params UpdateOnReadRequest
+	if err := commons.ReadJSON(r, &params); err != nil {
+		log.Printf("Invalid read update request: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
 
-    commons.WriteJSON(w, http.StatusOK, UpdateOnReadResponse{
-        Success: true,
-    })
+	if err := params.Validate(); err != nil {
+		log.Printf("Validation error: %v", err)
+		commons.WriteJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.inAppNotificationRepository.UpdateOnRead(id, params.IsRead); err != nil {
+		log.Printf("Error updating notification read status: %v", err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
+
+	commons.WriteJSON(w, http.StatusOK, UpdateOnReadResponse{
+		Success: true,
+	})
 }
 
 // @Summary Delete a notification
@@ -117,34 +136,47 @@ func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
 // @Success 204 "No Content"
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications/{id} [delete]
 func (h *handler) DeleteInAppNotification(w http.ResponseWriter, r *http.Request) {
-    id := r.PathValue("id")
-    if id == "" {
-        commons.WriteJSONError(w, http.StatusBadRequest, "notification ID is required")
-        return
-    }
+	userID := GetUserIDFromContext(r)
+	if userID == "" {
+		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
 
-    if !commons.IsValidUUID(id) {
-        commons.WriteJSONError(w, http.StatusBadRequest, "invalid notification ID format")
-        return
-    }
+	id := r.PathValue("id")
+	if id == "" {
+		commons.WriteJSONError(w, http.StatusBadRequest, "notification ID is required")
+		return
+	}
 
-    _, err := h.inAppNotificationRepository.GetByID(id)
-    if err != nil {
-        log.Printf("Error fetching notification %s: %v", id, err)
-        commons.WriteJSONError(w, http.StatusNotFound, "notification not found")
-        return
-    }
+	if !commons.IsValidUUID(id) {
+		commons.WriteJSONError(w, http.StatusBadRequest, "invalid notification ID format")
+		return
+	}
 
-    if err := h.inAppNotificationRepository.Delete(id); err != nil {
-        log.Printf("Error deleting notification: %v", err)
-        commons.InternalServerErrorHandler(w)
-        return
-    }
+	notification, err := h.inAppNotificationRepository.GetByID(id)
+	if err != nil {
+		log.Printf("Error fetching notification %s: %v", id, err)
+		commons.WriteJSONError(w, http.StatusNotFound, "notification not found")
+		return
+	}
 
-    commons.WriteJSON(w, http.StatusOK, map[string]bool{
-        "success": true,
-    })
+	// Check if user has permission to delete this notification
+	if notification.UserID != userID {
+		commons.WriteJSONError(w, http.StatusForbidden, "You don't have permission to delete this notification")
+		return
+	}
+
+	if err := h.inAppNotificationRepository.Delete(id); err != nil {
+		log.Printf("Error deleting notification: %v", err)
+		commons.InternalServerErrorHandler(w)
+		return
+	}
+
+	commons.WriteJSON(w, http.StatusOK, map[string]bool{
+		"success": true,
+	})
 }

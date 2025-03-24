@@ -5,15 +5,25 @@ import (
 	"time"
 )
 
+// UserResponse represents a user in API responses
+type UserResponse struct {
+	ID     string `json:"id"`
+	Handle string `json:"handle"`
+	Email  string `json:"email"`
+}
+
+// GetTaskResponse represents the response for a single task
 type GetTaskResponse struct {
-	ID          string                    `json:"id"`
-	Title       string                    `json:"title"`
-	Description string                    `json:"description"`
-	Status      string                    `json:"status"`
-	Priority    int                       `json:"priority"`
-	DueDate     time.Time                 `json:"due_date"`
-	CreatedAt   time.Time                 `json:"created_at"`
-	UpdatedAt   time.Time                 `json:"updated_at"`
+	ID          string                 `json:"id"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Status      string                 `json:"status"`
+	Priority    int                    `json:"priority"`
+	DueDate     time.Time              `json:"due_date"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+	Creator     UserResponse           `json:"creator"`
+	Assignee    *UserResponse          `json:"assignee,omitempty"`
 	Events      []TaskSystemEventResponse `json:"events"`
 }
 
@@ -21,12 +31,14 @@ type GetAllTasksResponse struct {
 	Tasks []GetTaskResponse `json:"tasks"`
 }
 
+// CreateTaskRequest represents the request body for creating a task
 type CreateTaskRequest struct {
-	Title       string `json:"title" validate:"required,min=3,max=100"`
-	Description string `json:"description" validate:"max=500"`
-	Status      string `json:"status" validate:"required,oneof=todo in_progress done"`
-	Priority    int    `json:"priority" validate:"required,oneof=1 2 3"`
-	DueDate     string `json:"due_date" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	Title       string  `json:"title" validate:"required,min=3,max=100"`
+	Description string  `json:"description" validate:"max=500"`
+	Status      string  `json:"status" validate:"required,oneof=todo in_progress done"`
+	Priority    int     `json:"priority" validate:"required,oneof=1 2 3"`
+	DueDate     string  `json:"due_date" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	AssigneeID  *string `json:"assignee_id,omitempty"`
 }
 
 func (r *CreateTaskRequest) Validate() error {
@@ -64,12 +76,14 @@ type CreateTaskResponse struct {
 	TaskId string `json:"task_id"`
 }
 
+// UpdateTaskRequest represents the request body for updating a task
 type UpdateTaskRequest struct {
-	Title       string `json:"title" validate:"omitempty,min=3,max=100"`
-	Description string `json:"description" validate:"omitempty,max=500"`
-	Status      string `json:"status" validate:"omitempty,oneof=todo in_progress done"`
-	Priority    int    `json:"priority" validate:"omitempty,oneof=1 2 3"`
-	DueDate     string `json:"due_date" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	Title       string  `json:"title" validate:"omitempty,min=3,max=100"`
+	Description string  `json:"description" validate:"omitempty,max=500"`
+	Status      string  `json:"status" validate:"omitempty,oneof=todo in_progress done"`
+	Priority    int     `json:"priority" validate:"omitempty,oneof=1 2 3"`
+	DueDate     string  `json:"due_date" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
+	AssigneeID  *string `json:"assignee_id,omitempty"`
 }
 
 func (r *UpdateTaskRequest) Validate() error {

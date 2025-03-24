@@ -11,6 +11,7 @@ import (
 // @Description InAppNotification model
 type InAppNotification struct {
 	ID          string      `json:"id"`
+	UserID      string      `json:"user_id"`
 	Title       string      `json:"title"`
 	Description string      `json:"description"`
 	IsRead      bool        `json:"is_read"`
@@ -24,6 +25,7 @@ type InAppNotification struct {
 type InAppNotificationRepositoryInterface interface {
 	GetAll() ([]InAppNotification, error)
 	GetByID(id string) (InAppNotification, error)
+	GetByUserID(userID string) ([]InAppNotification, error)
 	Create(inAppNotification InAppNotification) (InAppNotification, error)
 	UpdateOnRead(id string, isRead bool) error
 	Update(inAppNotification InAppNotification) error
@@ -41,7 +43,7 @@ func NewPostgresInAppNotificationRepository(db *sql.DB) *PostgresInAppNotificati
 
 func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, error) {
 	rows, err := r.DB.Query(`
-		SELECT id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
+		SELECT id, user_id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
 		FROM in_app_notifications
 	`)
 	if err != nil {
@@ -53,9 +55,10 @@ func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, err
 	for rows.Next() {
 		var inAppNotification InAppNotification
 		var readAt sql.NullTime
-		
+
 		err := rows.Scan(
 			&inAppNotification.ID,
+			&inAppNotification.UserID,
 			&inAppNotification.Title,
 			&inAppNotification.Description,
 			&inAppNotification.IsRead,
@@ -72,7 +75,7 @@ func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, err
 		if readAt.Valid {
 			inAppNotification.ReadAt = &readAt.Time
 		}
-		
+
 		inAppNotifications = append(inAppNotifications, inAppNotification)
 	}
 
@@ -82,12 +85,13 @@ func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, err
 func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotification, error) {
 	var inAppNotification InAppNotification
 	var readAt sql.NullTime
-	
+
 	err := r.DB.QueryRow(`
-		SELECT id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
+		SELECT id, user_id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
 		FROM in_app_notifications WHERE id = $1
 	`, id).Scan(
 		&inAppNotification.ID,
+		&inAppNotification.UserID,
 		&inAppNotification.Title,
 		&inAppNotification.Description,
 		&inAppNotification.IsRead,
@@ -105,8 +109,51 @@ func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotificat
 	if readAt.Valid {
 		inAppNotification.ReadAt = &readAt.Time
 	}
-	
+
 	return inAppNotification, nil
+}
+
+func (r *PostgresInAppNotificationRepository) GetByUserID(userID string) ([]InAppNotification, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, user_id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
+		FROM in_app_notifications
+		WHERE user_id = $1 AND deleted = false
+		ORDER BY created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var inAppNotifications []InAppNotification
+	for rows.Next() {
+		var inAppNotification InAppNotification
+		var readAt sql.NullTime
+
+		err := rows.Scan(
+			&inAppNotification.ID,
+			&inAppNotification.UserID,
+			&inAppNotification.Title,
+			&inAppNotification.Description,
+			&inAppNotification.IsRead,
+			&readAt,
+			&inAppNotification.CreatedAt,
+			&inAppNotification.UpdatedAt,
+			&inAppNotification.Deleted,
+			&inAppNotification.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if readAt.Valid {
+			inAppNotification.ReadAt = &readAt.Time
+		}
+
+		inAppNotifications = append(inAppNotifications, inAppNotification)
+	}
+
+	return inAppNotifications, nil
 }
 
 func (r *PostgresInAppNotificationRepository) Create(inAppNotification InAppNotification) (InAppNotification, error) {
@@ -119,10 +166,11 @@ func (r *PostgresInAppNotificationRepository) Create(inAppNotification InAppNoti
 	inAppNotification.UpdatedAt = now
 
 	_, err := r.DB.Exec(`
-		INSERT INTO in_app_notifications (id, title, description, is_read, read_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO in_app_notifications (id, user_id, title, description, is_read, read_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`,
 		inAppNotification.ID,
+		inAppNotification.UserID,
 		inAppNotification.Title,
 		inAppNotification.Description,
 		inAppNotification.IsRead,

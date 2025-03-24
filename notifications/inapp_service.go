@@ -44,15 +44,32 @@ func (s *InAppNotificationService) Handle(ctx context.Context, taskID, correlati
 }
 
 func (s *InAppNotificationService) createInAppNotification(_ context.Context, task *commons.Task) error {
-	inAppNotification := commons.InAppNotification{
+	// Create notification for the task creator
+	creatorNotification := commons.InAppNotification{
+		UserID:      task.CreatorID,
 		Title:       task.Title,
 		Description: task.Description,
 	}
 
-	_, err := s.inAppNotificationRepository.Create(inAppNotification)
+	_, err := s.inAppNotificationRepository.Create(creatorNotification)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create notification for creator: %w", err)
 	}
+
+	// Create notification for the assignee if exists
+	if task.AssigneeID != nil {
+		assigneeNotification := commons.InAppNotification{
+			UserID:      *task.AssigneeID,
+			Title:       task.Title,
+			Description: task.Description,
+		}
+
+		_, err := s.inAppNotificationRepository.Create(assigneeNotification)
+		if err != nil {
+			return fmt.Errorf("failed to create notification for assignee: %w", err)
+		}
+	}
+
 	return nil
 }
 
