@@ -8,20 +8,19 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	commons "sama/go-task-management/commons"
-	pb "sama/go-task-management/commons/api"
 	"sama/go-task-management/gateway/config"
 	"sama/go-task-management/gateway/middleware"
+	"sama/go-task-management/gateway/routes"
 
 	_ "sama/go-task-management/gateway/docs"
-
-	_ "github.com/joho/godotenv/autoload"
-	httpSwagger "github.com/swaggo/http-swagger"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ErrorResponse represents an error response
@@ -32,83 +31,55 @@ type ErrorResponse struct {
 
 func main() {
 	// Load configuration
-	cfg, err := config.LoadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	ctx := context.Background()
-	conn, err := grpc.DialContext(
-		ctx,
-		cfg.NotificationServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		log.Fatalf("Failed to connect to server: %v", err)
-	}
-	defer conn.Close()
+	// Create router
+	router := routes.NewRouter()
 
-	log.Printf("Connected to notification service at %s", cfg.NotificationServiceAddr)
+	// Create handler instance
+	handler := NewHandler(cfg)
 
-	notificationServiceClient := pb.NewNotificationServiceClient(conn)
+	// Register routes
+	router.RegisterRoutes(handler, middleware.DefaultCorsConfig(), middleware.DefaultAuthConfig(cfg.JWTSecret))
 
-	database, err := commons.InitDB()
-	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer database.Close()
-
-	log.Printf("Connected to database")
-
-	userRepository := commons.NewPostgresUserRepository(database)
-	taskRepository := commons.NewPostgresTaskRepository(database)
-	taskSystemEventRepository := commons.NewPostgresTaskSystemEventRepository(database)
-	inAppNotificationRepository := commons.NewPostgresInAppNotificationRepository(database)
-	passwordResetTokenRepository := commons.NewPostgresPasswordResetTokenRepository(database)
-
-	handler := NewHandler(
-		userRepository,
-		taskRepository,
-		taskSystemEventRepository,
-		inAppNotificationRepository,
-		notificationServiceClient,
-		passwordResetTokenRepository,
-	)
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/swagger/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		httpSwagger.Handler(
-			httpSwagger.URL("http://localhost:3012/swagger/doc.json"),
-			httpSwagger.DeepLinking(true),
-		).ServeHTTP(w, r)
-	})
-
-	handler.registerRoutes(mux)
-
+	// Create middleware chain
 	chain := middleware.NewChain(
 		middleware.RecoveryMiddleware,
 		middleware.LoggingMiddleware,
-		middleware.CorsMiddleware(middleware.CorsConfig{
-			AllowedOrigins: cfg.AllowedOrigins,
-			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-			AllowedHeaders: []string{"Content-Type", "Authorization", "X-Requested-With", "Accept"},
-			MaxAge:         86400,
-		}),
+		middleware.CorsMiddleware(middleware.DefaultCorsConfig()),
 		middleware.AuthMiddleware(middleware.DefaultAuthConfig(cfg.JWTSecret)),
 	)
 
-	log.Printf("Starting server on %s", cfg.HTTPAddress)
-	if err := http.ListenAndServe(cfg.HTTPAddress, chain.Then(mux)); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Create server with middleware chain
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: chain.Then(router.GetMux()),
 	}
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting server on port %d", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// Graceful shutdown
+	log.Println("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited properly")
 }
