@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
+	"sama/go-task-management/gateway/middleware"
 )
 
 type SystemEventHandler struct {
@@ -23,13 +23,20 @@ type GetAllTaskSystemEventsResponse struct {
 // @Accept json
 // @Produce json
 // @Success 200 {object} GetAllTaskSystemEventsResponse
+// @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /task-system-events [get]
 func (h *SystemEventHandler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r)
+	if userID == "" {
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
+		return
+	}
+
 	events, err := h.taskSystemEventRepository.GetAll()
 	if err != nil {
-		log.Printf("Failed to get all task system events: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to fetch system events")
+		h.logger.Printf("Failed to get all task system events: %v", err)
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch system events", err.Error())
 		return
 	}
 

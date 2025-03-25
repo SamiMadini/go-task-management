@@ -3,6 +3,13 @@ package main
 // @title Task Management API
 // @version 1.0
 // @description API for managing tasks, notifications, and system events
+// @description
+// @description Error Handling:
+// @description - 400 Bad Request: Invalid input, validation errors, or malformed requests
+// @description - 401 Unauthorized: Missing or invalid authentication token
+// @description - 403 Forbidden: Valid token but insufficient permissions
+// @description - 404 Not Found: Resource not found
+// @description - 500 Internal Server Error: Unexpected server errors
 // @host localhost:3012
 // @BasePath /api/v1
 
@@ -24,10 +31,27 @@ import (
 	_ "sama/go-task-management/gateway/docs"
 )
 
-// ErrorResponse represents an error response
-// @Description Error response model
+// ErrorResponse represents a standardized error response
+// @Description Error response model with detailed information about the error
+// @Description Common error codes:
+// @Description - BAD_REQUEST: Invalid input or request format
+// @Description - UNAUTHORIZED: Authentication required
+// @Description - FORBIDDEN: Permission denied
+// @Description - NOT_FOUND: Resource not found
+// @Description - INTERNAL_ERROR: Server error
+// @Description - VALIDATION_ERROR: Input validation failed
 type ErrorResponse struct {
-	Error string `json:"error" example:"Invalid task ID format"`
+	Code             string            `json:"code" example:"BAD_REQUEST" enums:"BAD_REQUEST,UNAUTHORIZED,FORBIDDEN,NOT_FOUND,INTERNAL_ERROR,VALIDATION_ERROR"`
+	Message          string            `json:"message" example:"Invalid task format"`
+	Details          string            `json:"details,omitempty" example:"Task ID must be a valid UUID"`
+	ValidationErrors []ValidationError `json:"validation_errors,omitempty"`
+}
+
+// ValidationError represents a field-level validation error
+// @Description Validation error for a specific field
+type ValidationError struct {
+	Field   string `json:"field" example:"email"`
+	Message string `json:"message" example:"Email address is invalid"`
 }
 
 func main() {

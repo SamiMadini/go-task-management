@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"sama/go-task-management/commons"
@@ -28,6 +29,55 @@ type SignUpRequest struct {
 	Password string `json:"password"`
 }
 
+func (r *SignUpRequest) Validate() []ValidationError {
+	var errors []ValidationError
+
+	if r.Handle == "" {
+		errors = append(errors, ValidationError{
+			Field:   "handle",
+			Message: "Handle is required",
+		})
+	}
+
+	if len(r.Handle) > 50 {
+		errors = append(errors, ValidationError{
+			Field:   "handle",
+			Message: "Handle must be less than 50 characters",
+		})
+	}
+
+	if r.Email == "" {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Email is required",
+		})
+	}
+
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(r.Email) {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Invalid email format",
+		})
+	}
+
+	if r.Password == "" {
+		errors = append(errors, ValidationError{
+			Field:   "password",
+			Message: "Password is required",
+		})
+	}
+
+	if len(r.Password) < 8 {
+		errors = append(errors, ValidationError{
+			Field:   "password",
+			Message: "Password must be at least 8 characters",
+		})
+	}
+
+	return errors
+}
+
 type SignUpResponse struct {
 	User  UserResponse   `json:"user"`
 	Token TokenResponse  `json:"token"`
@@ -36,6 +86,34 @@ type SignUpResponse struct {
 type SignInRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+func (r *SignInRequest) Validate() []ValidationError {
+	var errors []ValidationError
+
+	if r.Email == "" {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Email is required",
+		})
+	}
+
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(r.Email) {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Invalid email format",
+		})
+	}
+
+	if r.Password == "" {
+		errors = append(errors, ValidationError{
+			Field:   "password",
+			Message: "Password is required",
+		})
+	}
+
+	return errors
 }
 
 type SignInResponse struct {
@@ -47,13 +125,74 @@ type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+func (r *RefreshTokenRequest) Validate() []ValidationError {
+	var errors []ValidationError
+
+	if r.RefreshToken == "" {
+		errors = append(errors, ValidationError{
+			Field:   "refresh_token",
+			Message: "Refresh token is required",
+		})
+	}
+
+	return errors
+}
+
 type ForgotPasswordRequest struct {
 	Email string `json:"email"`
+}
+
+func (r *ForgotPasswordRequest) Validate() []ValidationError {
+	var errors []ValidationError
+
+	if r.Email == "" {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Email is required",
+		})
+	}
+
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(r.Email) {
+		errors = append(errors, ValidationError{
+			Field:   "email",
+			Message: "Invalid email format",
+		})
+	}
+
+	return errors
 }
 
 type ResetPasswordRequest struct {
 	Token       string `json:"token"`
 	NewPassword string `json:"new_password"`
+}
+
+func (r *ResetPasswordRequest) Validate() []ValidationError {
+	var errors []ValidationError
+
+	if r.Token == "" {
+		errors = append(errors, ValidationError{
+			Field:   "token",
+			Message: "Token is required",
+		})
+	}
+
+	if r.NewPassword == "" {
+		errors = append(errors, ValidationError{
+			Field:   "new_password",
+			Message: "New password is required",
+		})
+	}
+
+	if len(r.NewPassword) < 8 {
+		errors = append(errors, ValidationError{
+			Field:   "new_password",
+			Message: "New password must be at least 8 characters",
+		})
+	}
+
+	return errors
 }
 
 type AuthHandler struct {
@@ -113,7 +252,6 @@ func (h *AuthHandler) comparePasswords(hashedPassword, password, salt string) bo
 }
 
 func (h *AuthHandler) generateSalt() string {
-	// Generate a shorter salt (16 bytes = 32 characters when base64 encoded)
 	saltBytes := make([]byte, 16)
 	_, err := rand.Read(saltBytes)
 	if err != nil {
@@ -126,87 +264,97 @@ func (h *AuthHandler) generateSalt() string {
 
 // @Summary Sign in user
 // @Description Authenticates a user and returns access and refresh tokens
+// @Description
+// @Description Error scenarios:
+// @Description - Invalid credentials: Returns 401 with UNAUTHORIZED code
+// @Description - Missing required fields: Returns 400 with VALIDATION_ERROR code
+// @Description - Invalid email format: Returns 400 with VALIDATION_ERROR code
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param user body SignInRequest true "Sign in credentials"
-// @Success 200 {object} SignInResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} SignInResponse "Successfully authenticated"
+// @Failure 400 {object} ErrorResponse "Invalid request format or validation errors"
+// @Failure 401 {object} ErrorResponse "Invalid credentials"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /auth/signin [post]
 func (h *AuthHandler) Signin(w http.ResponseWriter, r *http.Request) {
 	var req SignInRequest
 	if err := h.decodeJSON(r, &req); err != nil {
-		log.Printf("Error decoding request: %v", err)
-		h.respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
 		return
 	}
 
-	log.Printf("Attempting to sign in user with email: %s", req.Email)
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		h.respondWithValidationErrors(w, validationErrors)
+		return
+	}
 
 	user, err := h.userRepository.GetByEmail(req.Email)
 	if err != nil {
-		log.Printf("Error getting user: %v", err)
-		h.respondWithError(w, http.StatusUnauthorized, "Invalid credentials")
+		h.logger.Printf("Error getting user: %v", err)
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid credentials", "Email or password is incorrect")
 		return
 	}
 
 	if user.ID == "" {
-		log.Printf("User not found with email: %s", req.Email)
-		h.respondWithError(w, http.StatusUnauthorized, "Invalid credentials")
+		h.logger.Printf("User not found with email: %s", req.Email)
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid credentials", "Email or password is incorrect")
 		return
 	}
-
-	log.Printf("Found user: ID=%s, Email=%s", user.ID, user.Email)
 
 	if !h.comparePasswords(user.PasswordHash, req.Password, user.Salt) {
-		log.Printf("Invalid password for user: %s", user.Email)
-		h.respondWithError(w, http.StatusUnauthorized, "Invalid credentials")
+		h.logger.Printf("Invalid password for user: %s", user.Email)
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid credentials", "Email or password is incorrect")
 		return
 	}
 
-	log.Printf("Password verified for user: %s", user.Email)
-
 	tokenResponse := h.generateTokens(user.ID)
-
 	userResponse := UserResponse{ID: user.ID, Handle: user.Handle, Email: user.Email, Status: user.Status}
 
-	response := SignInResponse{
+	h.respondWithJSON(w, http.StatusOK, SignInResponse{
 		User:  userResponse,
 		Token: tokenResponse,
-	}
-
-	h.respondWithJSON(w, http.StatusOK, response)
+	})
 }
 
 // @Summary Refresh access token
 // @Description Generates new access and refresh tokens using a valid refresh token
+// @Description
+// @Description Error scenarios:
+// @Description - Invalid refresh token: Returns 401 with UNAUTHORIZED code
+// @Description - Token expired: Returns 401 with UNAUTHORIZED code
+// @Description - Token blacklisted: Returns 401 with UNAUTHORIZED code
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param token body RefreshTokenRequest true "Refresh token"
-// @Success 200 {object} TokenResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} TokenResponse "New tokens generated successfully"
+// @Failure 400 {object} ErrorResponse "Invalid request format"
+// @Failure 401 {object} ErrorResponse "Invalid or expired refresh token"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req RefreshTokenRequest
 	if err := h.decodeJSON(r, &req); err != nil {
-		h.respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		h.respondWithValidationErrors(w, validationErrors)
 		return
 	}
 
 	token, err := middleware.ParseToken(req.RefreshToken, h.jwtSecret)
 	if err != nil {
-		h.respondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid refresh token", err.Error())
 		return
 	}
 
 	claims, ok := token.Claims.(*middleware.AuthClaims)
 	if !ok || !token.Valid {
-		h.respondWithError(w, http.StatusUnauthorized, "Invalid refresh token claims")
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Invalid refresh token claims", "Token claims are invalid or expired")
 		return
 	}
 
@@ -226,181 +374,211 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Signout(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
-		h.respondWithError(w, http.StatusUnauthorized, "User not authenticated")
+		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
 		return
 	}
 
-	// TODO: Invalidate the refresh token here or add it to a blacklist
+	// TODO: Implement token blacklisting or revocation
 
-	h.respondWithJSON(w, http.StatusOK, map[string]string{"message": "Successfully signed out"})
+	h.respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Successfully signed out",
+	})
 }
 
 // @Summary Request password reset
 // @Description Initiates a password reset process by sending a reset link to the user's email
+// @Description
+// @Description Error scenarios:
+// @Description - User not found: Returns 404 with NOT_FOUND code
+// @Description - Invalid email format: Returns 400 with VALIDATION_ERROR code
+// @Description - Email service error: Returns 500 with INTERNAL_ERROR code
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param request body ForgotPasswordRequest true "Password reset request"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} map[string]string "Reset email sent successfully"
+// @Failure 400 {object} ErrorResponse "Invalid email format"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Failure 500 {object} ErrorResponse "Failed to send reset email"
 // @Router /auth/forgot-password [post]
 func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := h.decodeJSON(r, &req); err != nil {
-		h.respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		h.respondWithValidationErrors(w, validationErrors)
 		return
 	}
 
 	user, err := h.userRepository.GetByEmail(req.Email)
 	if err != nil {
-		// Avoid enumeration attacks
-		h.respondWithJSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a password reset link has been sent"})
+		h.logger.Printf("Error getting user: %v", err)
+		h.respondWithJSON(w, http.StatusOK, map[string]string{
+			"message": "If your email is registered, you will receive a password reset link",
+		})
+		return
+	}
+
+	if user.ID == "" {
+		h.respondWithJSON(w, http.StatusOK, map[string]string{
+			"message": "If your email is registered, you will receive a password reset link",
+		})
 		return
 	}
 
 	token := uuid.New().String()
-	expiresAt := time.Now().Add(24 * time.Hour)
+	expiresAt := time.Now().Add(1 * time.Hour)
 
 	resetToken := commons.PasswordResetToken{
 		ID:        uuid.New().String(),
 		UserID:    user.ID,
 		Token:     token,
 		ExpiresAt: expiresAt,
-		Used:      false,
 		CreatedAt: time.Now(),
 	}
 
 	_, err = h.passwordResetTokenRepository.Create(resetToken)
 	if err != nil {
-		log.Printf("Error creating password reset token: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to process request")
+		h.logger.Printf("Error creating password reset token: %v", err)
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", err.Error())
 		return
 	}
 
 	// TODO: Send email with reset link
-	resetLink := "http://localhost:3000/reset-password?token=" + token
-	h.respondWithJSON(w, http.StatusOK, map[string]string{"reset_link": resetLink})
+
+	h.respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "If your email is registered, you will receive a password reset link",
+	})
 }
 
 // @Summary Reset password
 // @Description Resets the user's password using a valid reset token
+// @Description
+// @Description Error scenarios:
+// @Description - Invalid token: Returns 400 with BAD_REQUEST code
+// @Description - Token expired: Returns 400 with BAD_REQUEST code
+// @Description - Weak password: Returns 400 with VALIDATION_ERROR code
+// @Description - Token already used: Returns 400 with BAD_REQUEST code
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param request body ResetPasswordRequest true "Password reset request"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} map[string]string "Password reset successful"
+// @Failure 400 {object} ErrorResponse "Invalid token or password validation errors"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /auth/reset-password [post]
 func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := h.decodeJSON(r, &req); err != nil {
-		h.respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		h.respondWithValidationErrors(w, validationErrors)
 		return
 	}
 
 	resetToken, err := h.passwordResetTokenRepository.GetByToken(req.Token)
 	if err != nil {
-		h.respondWithError(w, http.StatusBadRequest, "Invalid or expired reset token")
+		h.logger.Printf("Error getting reset token: %v", err)
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid or expired token", "The reset token is invalid or has expired")
 		return
 	}
 
-	if resetToken.Used || time.Now().After(resetToken.ExpiresAt) {
-		h.respondWithError(w, http.StatusBadRequest, "Invalid or expired reset token")
+	if resetToken.ExpiresAt.Before(time.Now()) {
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Token expired", "The reset token has expired")
+		return
+	}
+
+	user, err := h.userRepository.GetByID(resetToken.UserID)
+	if err != nil {
+		h.logger.Printf("Error getting user: %v", err)
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", err.Error())
 		return
 	}
 
 	salt := h.generateSalt()
 	if salt == "" {
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to generate salt")
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", "Error generating salt")
 		return
 	}
 
-	hashedPassword := h.hashPassword(req.NewPassword, salt)
-	if hashedPassword == "" {
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to process password")
+	passwordHash := h.hashPassword(req.NewPassword, salt)
+	if passwordHash == "" {
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", "Error hashing password")
 		return
 	}
 
-	_, err = h.userRepository.UpdatePassword(resetToken.UserID, hashedPassword, salt)
+	_, err = h.userRepository.UpdatePassword(user.ID, passwordHash, salt)
 	if err != nil {
-		log.Printf("Error updating password: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to reset password")
+		h.logger.Printf("Error updating user: %v", err)
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to update password", err.Error())
 		return
 	}
 
-	err = h.passwordResetTokenRepository.MarkAsUsed(resetToken.ID)
-	if err != nil {
-		log.Printf("Error marking reset token as used: %v", err)
-		// Don't return an error to the user since the password was successfully reset
+	if err = h.passwordResetTokenRepository.MarkAsUsed(resetToken.ID); err != nil {
+		h.logger.Printf("Error marking reset token as used: %v", err)
 	}
 
-	h.respondWithJSON(w, http.StatusOK, map[string]string{"message": "Password successfully reset"})
+	h.respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password has been successfully reset",
+	})
 }
 
 // @Summary Sign up a new user
 // @Description Creates a new user account
+// @Description
+// @Description Error scenarios:
+// @Description - Email already registered: Returns 400 with BAD_REQUEST code
+// @Description - Handle already taken: Returns 400 with BAD_REQUEST code
+// @Description - Invalid email format: Returns 400 with VALIDATION_ERROR code
+// @Description - Password too weak: Returns 400 with VALIDATION_ERROR code
+// @Description - Missing required fields: Returns 400 with VALIDATION_ERROR code
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param user body SignUpRequest true "User registration data"
-// @Success 201 {object} SignUpResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 201 {object} SignUpResponse "Account created successfully"
+// @Failure 400 {object} ErrorResponse "Validation errors or duplicate email/handle"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /auth/signup [post]
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var req SignUpRequest
 	if err := h.decodeJSON(r, &req); err != nil {
-		log.Printf("Invalid signup request: %v", err)
-		h.respondWithError(w, http.StatusBadRequest, "Invalid request format")
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
 		return
 	}
 
-	if req.Handle == "" || req.Email == "" || req.Password == "" {
-		h.respondWithError(w, http.StatusBadRequest, "All fields are required")
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		h.respondWithValidationErrors(w, validationErrors)
 		return
 	}
 
 	existingUser, err := h.userRepository.GetByEmail(req.Email)
-	if err != nil {
-		log.Printf("Error checking existing user: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-	if existingUser.ID != "" {
-		h.respondWithError(w, http.StatusConflict, "Email already registered")
+	if err == nil && existingUser.ID != "" {
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Email already registered", "Please use a different email address")
 		return
 	}
 
 	existingUser, err = h.userRepository.GetByHandle(req.Handle)
-	if err != nil {
-		log.Printf("Error checking existing user: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-	if existingUser.ID != "" {
-		h.respondWithError(w, http.StatusConflict, "Handle already taken")
+	if err == nil && existingUser.ID != "" {
+		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Handle already taken", "Please choose a different handle")
 		return
 	}
 
 	salt := h.generateSalt()
 	if salt == "" {
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to generate salt")
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", "Error generating salt")
 		return
 	}
 
-	hashedPassword := h.hashPassword(req.Password, salt)
-	if hashedPassword == "" {
-		h.respondWithError(w, http.StatusInternalServerError, "Failed to process password")
+	passwordHash := h.hashPassword(req.Password, salt)
+	if passwordHash == "" {
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to process request", "Error hashing password")
 		return
 	}
 
@@ -409,27 +587,25 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		ID:           uuid.New().String(),
 		Handle:       req.Handle,
 		Email:        req.Email,
-		PasswordHash: hashedPassword,
+		PasswordHash: passwordHash,
 		Salt:         salt,
-		Status:       "active",
+		Status:       "ACTIVE",
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
 
-	result, err := h.userRepository.Create(user)
+	createdUser, err := h.userRepository.Create(user)
 	if err != nil {
-		log.Printf("Error creating user: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		h.logger.Printf("Error creating user: %v", err)
+		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to create user", err.Error())
 		return
 	}
 
-	userResponse := UserResponse{ID: result.ID, Handle: result.Handle, Email: result.Email, Status: result.Status}
-	tokenResponse := h.generateTokens(result.ID)
+	tokenResponse := h.generateTokens(createdUser.ID)
+	userResponse := UserResponse{ID: createdUser.ID, Handle: createdUser.Handle, Email: createdUser.Email, Status: createdUser.Status}
 
-	response := SignUpResponse{
+	h.respondWithJSON(w, http.StatusCreated, SignUpResponse{
 		User:  userResponse,
 		Token: tokenResponse,
-	}
-
-	h.respondWithJSON(w, http.StatusCreated, response)
+	})
 }
