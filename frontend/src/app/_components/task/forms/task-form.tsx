@@ -24,7 +24,12 @@ const taskFormSchema = z.object({
     .min(3, { message: "Title must be at least 3 characters long" })
     .max(100, { message: "Title must be less than 100 characters" }),
   description: z.string().max(500, { message: "Description must be less than 500 characters" }).optional(),
-  dueDate: z.date().optional(),
+  dueDate: z
+    .date()
+    .refine((date) => date > new Date(), {
+      message: "Due date must be in the future",
+    })
+    .optional(),
   priority: z.nativeEnum(TaskPriority),
   status: z.nativeEnum(TaskStatus),
 })
@@ -61,8 +66,6 @@ export function TaskForm({ initialData, onSubmit, onCancel }: TaskFormProps) {
       if (onSubmit) {
         await onSubmit(data)
       }
-
-      toast.success(initialData ? "Task updated successfully" : "Task created successfully")
 
       if (!onCancel) {
         router.push("/tasks")

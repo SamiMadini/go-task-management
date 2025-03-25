@@ -8,6 +8,12 @@ import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 import { useAuth } from "@/lib/hooks"
 import { store } from "@/lib/store"
 
+interface TasksResponse {
+  data: {
+    tasks: GetOneTaskInterface[]
+  }
+}
+
 export default function TasksPage() {
   const router = useRouter()
   const { isAuthenticated, accessToken } = useAuth()
@@ -15,7 +21,6 @@ export default function TasksPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Debug: Log auth state
     const state = store.getState()
     console.log("Auth state in tasks page:", {
       isAuthenticated,
@@ -37,11 +42,11 @@ export default function TasksPage() {
     const fetchTasks = async () => {
       try {
         console.log("Fetching tasks with token:", accessToken?.substring(0, 10) + "...")
-        const res = await axiosInstance.get("/api/v1/tasks")
-        if (!res.data || !res.data.tasks) {
+        const res = await axiosInstance.get<TasksResponse>("/api/v1/tasks")
+        if (!res.data?.data?.tasks) {
           throw new Error("Failed to fetch data")
         }
-        setTasks(res.data.tasks)
+        setTasks(res.data.data.tasks)
       } catch (error: any) {
         console.error("Error fetching tasks:", error)
         if (error.response?.status === 401) {

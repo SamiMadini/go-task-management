@@ -1,15 +1,25 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from "axios"
 import { store } from "@/lib/store"
+import { refreshToken as refreshTokenAction } from "@/lib/auth"
+import { logout } from "@/lib/features/auth/authSlice"
+
+export interface ValidationError {
+  field: string
+  message: string
+}
 
 export interface ApiError {
+  code: string
   message: string
-  status: number
-  data?: any
+  details?: string
+  validation_errors?: ValidationError[]
 }
 
 interface ErrorResponseData {
-  message?: string
-  [key: string]: any
+  code: string
+  message: string
+  details?: string
+  validation_errors?: ValidationError[]
 }
 
 const BASE_URL =
@@ -58,20 +68,29 @@ axiosInstance.interceptors.response.use(
   async (error: AxiosError<ErrorResponseData>): Promise<any> => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
 
-    if (error.response?.status === 401) {
-      console.error("Authentication error:", {
-        url: originalRequest.url,
-        method: originalRequest.method,
-        status: error.response.status,
-        timestamp: new Date().toISOString(),
-      })
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
 
-      // TODO: Implement token refresh logic here
-      // if (!originalRequest._retry) {
-      //   originalRequest._retry = true
-      //   // Implement token refresh logic
-      //   return axiosInstance(originalRequest)
-      // }
+      try {
+        const state = store.getState()
+        const refreshTokenStr = state.auth.refreshToken
+
+        if (!refreshTokenStr) {
+          store.dispatch(logout())
+          return Promise.reject(error)
+        }
+
+        const { accessToken } = await refreshTokenAction(refreshTokenStr)
+
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+        }
+
+        return axiosInstance(originalRequest)
+      } catch (refreshError) {
+        store.dispatch(logout())
+        return Promise.reject(refreshError)
+      }
     }
 
     if (error.code === "ECONNABORTED" || !error.response) {
@@ -83,9 +102,10 @@ axiosInstance.interceptors.response.use(
     }
 
     const apiError: ApiError = {
+      code: error.response?.data?.code || "INTERNAL_ERROR",
       message: error.response?.data?.message || error.response?.statusText || error.message || "An unknown error occurred",
-      status: error.response?.status || 500,
-      data: error.response?.data,
+      details: error.response?.data?.details,
+      validation_errors: error.response?.data?.validation_errors,
     }
 
     return Promise.reject(apiError)

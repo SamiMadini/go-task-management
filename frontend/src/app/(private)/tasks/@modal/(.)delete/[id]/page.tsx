@@ -1,7 +1,8 @@
 "use client"
 
 import { ConfirmDialog } from "@/app/_components/common/confirm-dialog"
-import { axiosInstance } from "@/lib/http/axios"
+import { axiosInstance, ApiError } from "@/lib/http/axios"
+import { toast } from "sonner"
 
 type Props = {
   params: {
@@ -12,6 +13,17 @@ type Props = {
 export default function TaskDeleteModalPage({ params }: Props) {
   const { id } = params
 
+  const handleError = (error: unknown) => {
+    const apiError = error as ApiError
+    const message = apiError.message || (error instanceof Error ? error.message : "An unknown error occurred")
+    const details = apiError.details
+
+    toast.error("Error deleting task", {
+      description: details || message,
+    })
+    console.error("Error deleting task:", error)
+  }
+
   return (
     <ConfirmDialog
       key={`delete-task-modal-${id}`}
@@ -21,12 +33,12 @@ export default function TaskDeleteModalPage({ params }: Props) {
       onConfirm={async () => {
         try {
           const resp = await axiosInstance.delete(`/api/v1/tasks/${id}`)
-
-          if (undefined === resp) {
-            throw new Error("No response")
+          if (!resp.data?.data?.success) {
+            throw new Error("Failed to delete task")
           }
+          toast.success("Task deleted successfully")
         } catch (error) {
-          console.error(error)
+          handleError(error)
         }
       }}
     />

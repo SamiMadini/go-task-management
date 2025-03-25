@@ -3,6 +3,7 @@ import { setCredentials, setError, setLoading, logout, User } from "./features/a
 import { axiosInstance } from "./http/axios"
 import axios from "axios"
 import { persistor } from "./store"
+import { ApiError, ValidationError } from "./http/axios"
 
 export interface SignInCredentials {
   email: string
@@ -19,16 +20,18 @@ export interface ResetPasswordCredentials {
 }
 
 export interface AuthResponse {
-  user: User
-  token: {
-    access_token: string
-    refresh_token: string
-    expires_in: number
+  data: {
+    user: User
+    token: {
+      access_token: string
+      refresh_token: string
+      expires_in: number
+    }
   }
 }
 
 export class AuthError extends Error {
-  constructor(message: string, public code?: string, public status?: number) {
+  constructor(message: string, public code?: string, public details?: string, public validationErrors?: ValidationError[]) {
     super(message)
     this.name = "AuthError"
   }
@@ -36,15 +39,23 @@ export class AuthError extends Error {
 
 const handleAuthError = (error: unknown): never => {
   if (axios.isAxiosError(error)) {
-    const status = error.response?.status
-    const message = error.response?.data?.message || error.message
-    throw new AuthError(message, error.code, status)
+    const errorData = error.response?.data as ApiError
+    throw new AuthError(errorData?.message || error.message, errorData?.code, errorData?.details, errorData?.validation_errors)
+  }
+  if ((error as ApiError)?.code) {
+    const apiError = error as ApiError
+    throw new AuthError(apiError.message, apiError.code, apiError.details, apiError.validation_errors)
   }
   throw new AuthError(error instanceof Error ? error.message : "An unknown error occurred")
 }
 
 const dispatchAuthError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : "An unknown error occurred"
+  let message = "An unknown error occurred"
+  if (error instanceof AuthError) {
+    message = error.validationErrors?.length ? error.validationErrors.map((e) => `${e.field}: ${e.message}`).join(", ") : error.message
+  } else if (error instanceof Error) {
+    message = error.message
+  }
   store.dispatch(setError(message))
   return handleAuthError(error)
 }
@@ -62,7 +73,7 @@ export async function signIn(credentials: SignInCredentials): Promise<void> {
   return withLoading(async () => {
     try {
       const response = await axiosInstance.post<AuthResponse>("/api/v1/auth/signin", credentials)
-      const { token, user } = response.data
+      const { token, user } = response.data.data
 
       if (!token.access_token || !token.refresh_token) {
         throw new AuthError("Invalid response: missing tokens")
@@ -95,7 +106,7 @@ export async function signUp(credentials: SignUpCredentials): Promise<void> {
   return withLoading(async () => {
     try {
       const response = await axiosInstance.post<AuthResponse>("/api/v1/auth/signup", credentials)
-      const { token, user } = response.data
+      const { token, user } = response.data.data
 
       store.dispatch(
         setCredentials({
@@ -146,9 +157,11 @@ export async function resetPassword(credentials: ResetPasswordCredentials): Prom
 
 export async function refreshToken(token: string): Promise<{ accessToken: string }> {
   try {
-    const response = await axiosInstance.post<AuthResponse["token"]>("/api/v1/auth/refresh-token", { refresh_token: token })
+    const response = await axiosInstance.post<{ data: AuthResponse["data"]["token"] }>("/api/v1/auth/refresh-token", {
+      refresh_token: token,
+    })
 
-    if (!response.data.access_token) {
+    if (!response.data.data.access_token) {
       throw new AuthError("No access token received in refresh response")
     }
 
@@ -160,12 +173,12 @@ export async function refreshToken(token: string): Promise<{ accessToken: string
     store.dispatch(
       setCredentials({
         user: currentUser,
-        accessToken: response.data.access_token,
-        refreshToken: response.data.refresh_token,
+        accessToken: response.data.data.access_token,
+        refreshToken: response.data.data.refresh_token,
       })
     )
 
-    return { accessToken: response.data.access_token }
+    return { accessToken: response.data.data.access_token }
   } catch (error) {
     console.error("RefreshToken::Token refresh failed:", error)
     if (axios.isAxiosError(error)) {

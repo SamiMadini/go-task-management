@@ -2,11 +2,16 @@
 
 import { SheetRight } from "@/app/_components/common/sheet-right"
 import { TaskForm } from "@/app/_components/task/forms/task-form"
-import { axiosInstance } from "@/lib/http/axios"
+import { axiosInstance, ApiError } from "@/lib/http/axios"
 import { useRouter } from "next/navigation"
 import { GetOneTaskInterface } from "@/app/domain/task/interfaces.task"
 import { AxiosResponse } from "axios"
 import { DateTime } from "luxon"
+import { toast } from "sonner"
+
+interface TaskResponse {
+  data: GetOneTaskInterface
+}
 
 export default function RenderTaskFormSheet({
   task,
@@ -25,6 +30,19 @@ export default function RenderTaskFormSheet({
 }) {
   const router = useRouter()
 
+  const handleError = (error: unknown, action: string) => {
+    const apiError = error as ApiError
+    const message = apiError.message || (error instanceof Error ? error.message : "An unknown error occurred")
+    const details = apiError.details
+    const validationErrors = apiError.validation_errors?.map((err) => `${err.field}: ${err.message}`).join("\n")
+
+    toast.error(`Error ${action}`, {
+      description: validationErrors || details || message,
+    })
+    console.error(`Error ${action}:`, error)
+    throw error
+  }
+
   return (
     <SheetRight title={title} description={description} overlay={overlay} isModal={isModal} open={open}>
       <div className="mt-8">
@@ -42,7 +60,7 @@ export default function RenderTaskFormSheet({
           }
           onSubmit={async (data) => {
             try {
-              let response: AxiosResponse<GetOneTaskInterface> | null = null
+              let response: AxiosResponse<TaskResponse> | null = null
               if (task) {
                 const body = {
                   title: data.title,
@@ -75,14 +93,14 @@ export default function RenderTaskFormSheet({
                 })
               }
 
-              if (!response?.data) {
+              if (!response?.data?.data) {
                 throw new Error(`Failed to ${task ? "edit" : "create"} task`)
               }
 
+              toast.success(`Task ${task ? "updated" : "created"} successfully`)
               router.back()
             } catch (error) {
-              console.error(`Error ${task ? "editing" : "creating"} task:`, error)
-              throw error
+              handleError(error, task ? "editing" : "creating task")
             }
           }}
         />
