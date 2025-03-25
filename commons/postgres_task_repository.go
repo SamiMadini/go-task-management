@@ -55,6 +55,7 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 			e.id, e.task_id, e.correlation_id, e.origin, e.action,
 			e.message, e.json_data, e.emit_at, e.created_at
 		FROM tasks t
+		WHERE t.deleted = false
 		LEFT JOIN task_system_events e ON t.id = e.task_id
 		ORDER BY t.created_at DESC, e.created_at DESC
 	`)
@@ -273,7 +274,7 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 			)) as events
 		FROM tasks t
 		LEFT JOIN task_system_events e ON t.id = e.task_id
-		WHERE t.creator_id = $1 OR t.assignee_id = $1
+		WHERE (t.creator_id = $1 OR t.assignee_id = $1) AND t.deleted = false
 		GROUP BY t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority, t.due_date, t.created_at, t.updated_at
 		ORDER BY t.created_at DESC
 	`, userID)
