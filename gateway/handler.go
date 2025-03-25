@@ -9,11 +9,11 @@ import (
 )
 
 type handler struct {
-	taskRepository              commons.TaskRepositoryInterface
-	inAppNotificationRepository commons.InAppNotificationRepositoryInterface
-	taskSystemEventRepository   commons.TaskSystemEventRepositoryInterface
-	notificationServiceClient   pb.NotificationServiceClient
-	userRepository             commons.UserRepositoryInterface
+	taskRepository               commons.TaskRepositoryInterface
+	inAppNotificationRepository  commons.InAppNotificationRepositoryInterface
+	taskSystemEventRepository    commons.TaskSystemEventRepositoryInterface
+	notificationServiceClient    pb.NotificationServiceClient
+	userRepository               commons.UserRepositoryInterface
 	passwordResetTokenRepository commons.PasswordResetTokenRepositoryInterface
 }
 
@@ -26,11 +26,11 @@ func NewHandler(
 	passwordResetTokenRepository commons.PasswordResetTokenRepositoryInterface,
 ) *handler {
 	return &handler{
-		userRepository:             userRepository,
-		taskRepository:            taskRepository,
-		taskSystemEventRepository:  taskSystemEventRepository,
-		inAppNotificationRepository: inAppNotificationRepository,
-		notificationServiceClient:   notificationServiceClient,
+		userRepository:               userRepository,
+		taskRepository:               taskRepository,
+		taskSystemEventRepository:    taskSystemEventRepository,
+		inAppNotificationRepository:  inAppNotificationRepository,
+		notificationServiceClient:    notificationServiceClient,
 		passwordResetTokenRepository: passwordResetTokenRepository,
 	}
 }

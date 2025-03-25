@@ -14,16 +14,16 @@ type UserResponse struct {
 
 // GetTaskResponse represents the response for a single task
 type GetTaskResponse struct {
-	ID          string                 `json:"id"`
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Status      string                 `json:"status"`
-	Priority    int                    `json:"priority"`
-	DueDate     time.Time              `json:"due_date"`
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
-	Creator     UserResponse           `json:"creator"`
-	Assignee    *UserResponse          `json:"assignee,omitempty"`
+	ID          string                    `json:"id"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Status      string                    `json:"status"`
+	Priority    int                       `json:"priority"`
+	DueDate     time.Time                 `json:"due_date"`
+	CreatedAt   time.Time                 `json:"created_at"`
+	UpdatedAt   time.Time                 `json:"updated_at"`
+	Creator     UserResponse              `json:"creator"`
+	Assignee    *UserResponse             `json:"assignee,omitempty"`
 	Events      []TaskSystemEventResponse `json:"events"`
 }
 

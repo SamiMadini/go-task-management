@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"log"
-	"math/rand"
 	"net/http"
 	"time"
 
 	commons "sama/go-task-management/commons"
 	pb "sama/go-task-management/commons/api"
+
+	"crypto/rand"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -22,10 +23,10 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	User         SignupResponse   `json:"user"`
-	AccessToken  string           `json:"access_token"`
-	RefreshToken string           `json:"refresh_token"`
-	ExpiresIn    int64            `json:"expires_in"`
+	User         SignupResponse `json:"user"`
+	AccessToken  string         `json:"access_token"`
+	RefreshToken string         `json:"refresh_token"`
+	ExpiresIn    int64          `json:"expires_in"`
 }
 
 type RefreshTokenRequest struct {
@@ -227,14 +228,14 @@ func (h *handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
+	buffer := make([]byte, 32)
+	_, err = rand.Read(buffer)
+	if err != nil {
 		log.Printf("Error generating reset token: %v", err)
 		commons.InternalServerErrorHandler(w)
 		return
 	}
-	token := base64.URLEncoding.EncodeToString(tokenBytes)
-
+	token := base64.URLEncoding.EncodeToString(buffer)
 
 	now := time.Now()
 	resetToken := commons.PasswordResetToken{
@@ -342,7 +343,8 @@ func (h *handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
+	_, err = rand.Read(salt)
+	if err != nil {
 		log.Printf("Error generating salt: %v", err)
 		commons.InternalServerErrorHandler(w)
 		return

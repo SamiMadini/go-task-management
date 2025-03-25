@@ -187,7 +187,7 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:   t.CreatedAt,
 			UpdatedAt:   t.UpdatedAt,
 			Creator: UserResponse{
-				ID:    creator.ID,
+				ID:     creator.ID,
 				Handle: creator.Handle,
 				Email:  creator.Email,
 			},
@@ -196,7 +196,7 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 
 		if assignee != nil {
 			response.Tasks[i].Assignee = &UserResponse{
-				ID:    assignee.ID,
+				ID:     assignee.ID,
 				Handle: assignee.Handle,
 				Email:  assignee.Email,
 			}
@@ -329,12 +329,10 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		_, eventErr := h.taskSystemEventRepository.Create(notificationEvent, 3)
 		if eventErr != nil {
 			log.Printf("Error creating notification event: %v", eventErr)
-			eventErr = err
 		}
 
 		if err != nil {
 			log.Printf("Failed to send notification: %v", err)
-			eventErr = err
 		} else {
 			log.Printf("Notification sent successfully")
 		}

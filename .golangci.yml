@@ -1,0 +1,26 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unconvert
+    - unused
+
+output:
+  formats:
+    - format: colored-line-number
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

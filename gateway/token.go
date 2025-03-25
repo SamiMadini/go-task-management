@@ -4,7 +4,7 @@ import (
 	commons "sama/go-task-management/commons"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	jwtv5 "github.com/golang-jwt/jwt/v5"
 )
 
 const ACCESS_TOKEN_EXPIRATION = 10
@@ -17,19 +17,19 @@ type TokenResponse struct {
 }
 
 func generateTokens(userID string) (*TokenResponse, error) {
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &AuthClaims{
+	accessToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &AuthClaims{
 		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(ACCESS_TOKEN_EXPIRATION) * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		RegisteredClaims: jwtv5.RegisteredClaims{
+			ExpiresAt: jwtv5.NewNumericDate(time.Now().Add(time.Duration(ACCESS_TOKEN_EXPIRATION) * time.Minute)),
+			IssuedAt:  jwtv5.NewNumericDate(time.Now()),
 		},
 	})
 
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &AuthClaims{
+	refreshToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &AuthClaims{
 		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(REFRESH_TOKEN_EXPIRATION) * 24 * time.Hour)), // 30 days
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		RegisteredClaims: jwtv5.RegisteredClaims{
+			ExpiresAt: jwtv5.NewNumericDate(time.Now().Add(time.Duration(REFRESH_TOKEN_EXPIRATION) * 24 * time.Hour)), // 30 days
+			IssuedAt:  jwtv5.NewNumericDate(time.Now()),
 		},
 	})
 

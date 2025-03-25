@@ -7,6 +7,7 @@ package main
 // @BasePath /api/v1
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -19,6 +20,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ErrorResponse represents an error response
@@ -31,7 +33,12 @@ var httpAddress = commons.GetEnv("HTTP_ADDRESS", "localhost:8080")
 var notificationServiceAddress = commons.GetEnv("NOTIFICATION_SERVICE_ADDRESS", "localhost:2000")
 
 func main() {
-	conn, err := grpc.Dial(notificationServiceAddress, grpc.WithInsecure())
+	ctx := context.Background()
+	conn, err := grpc.DialContext(
+		ctx,
+		notificationServiceAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %v", err)
 	}
@@ -86,7 +93,7 @@ func main() {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 			allowedOrigins := []string{"http://localhost:3000", "http://localhost:3010", "http://localhost:3012"}
-			
+
 			for _, allowedOrigin := range allowedOrigins {
 				if origin == allowedOrigin {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -105,7 +112,7 @@ func main() {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

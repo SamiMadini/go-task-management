@@ -49,3 +49,35 @@ dc-reset-db:
 
 open-psql:
 	psql -h localhost -p 5433 -U postgres -d tasks
+
+.PHONY: lint lint-fix install-linters
+
+# Install golangci-lint if not already installed
+install-linters:
+	@if ! command -v golangci-lint &> /dev/null; then \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.56.2; \
+		cp $$(go env GOPATH)/bin/golangci-lint /usr/local/bin/; \
+	fi
+
+# Run linter on all modules
+lint:
+	docker run --rm -v $(PWD):/app -w /app/gateway golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+	docker run --rm -v $(PWD):/app -w /app/notifications golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+	docker run --rm -v $(PWD):/app -w /app/email-service golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+	docker run --rm -v $(PWD):/app -w /app/commons golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+
+# Run linter with auto-fix on all modules
+lint-fix:
+	docker run --rm -v $(PWD):/app -w /app/gateway golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
+	docker run --rm -v $(PWD):/app -w /app/notifications golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
+	docker run --rm -v $(PWD):/app -w /app/email-service golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
+	docker run --rm -v $(PWD):/app -w /app/commons golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
+
+# Run linter on a specific package
+lint-pkg:
+	@if [ "$(pkg)" = "" ]; then \
+		echo "Error: pkg is not set. Usage: make lint-pkg pkg=gateway"; \
+		exit 1; \
+	fi
+	docker run --rm -v $(PWD):/app -w /app/$(pkg) golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+	
