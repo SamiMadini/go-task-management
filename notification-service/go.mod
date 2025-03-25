@@ -1,4 +1,4 @@
-module sama/go-task-management/notifications
+module sama/go-task-management/notification-service
 
 go 1.24.0
 

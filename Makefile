@@ -1,5 +1,5 @@
 init-multi-modules:
-	go work init ./commons ./gateway ./notifications
+	go work init ./commons ./gateway ./notification-service
 
 install-dependencies: install-dependencies-commons install-dependencies-gateway install-dependencies-notifications
 
@@ -10,7 +10,7 @@ install-dependencies-gateway:
 	cd ./gateway && go mod tidy
 
 install-dependencies-notifications:
-	cd ./notifications && go mod tidy
+	cd ./notification-service && go mod tidy
 
 start-dev: dev-start-gateway
 
@@ -18,7 +18,7 @@ dev-start-gateway:
 	cd ./gateway && air
 
 dev-start-notifications-service:
-	cd ./notifications && go run main.go
+	cd ./notification-service && go run main.go
 
 
 dc-start:
@@ -62,14 +62,14 @@ install-linters:
 # Run linter on all modules
 lint:
 	docker run --rm -v $(PWD):/app -w /app/gateway golangci/golangci-lint:v1.64.6 golangci-lint run ./...
-	docker run --rm -v $(PWD):/app -w /app/notifications golangci/golangci-lint:v1.64.6 golangci-lint run ./...
+	docker run --rm -v $(PWD):/app -w /app/notification-service golangci/golangci-lint:v1.64.6 golangci-lint run ./...
 	docker run --rm -v $(PWD):/app -w /app/email-service golangci/golangci-lint:v1.64.6 golangci-lint run ./...
 	docker run --rm -v $(PWD):/app -w /app/commons golangci/golangci-lint:v1.64.6 golangci-lint run ./...
 
 # Run linter with auto-fix on all modules
 lint-fix:
 	docker run --rm -v $(PWD):/app -w /app/gateway golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
-	docker run --rm -v $(PWD):/app -w /app/notifications golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
+	docker run --rm -v $(PWD):/app -w /app/notification-service golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
 	docker run --rm -v $(PWD):/app -w /app/email-service golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
 	docker run --rm -v $(PWD):/app -w /app/commons golangci/golangci-lint:v1.64.6 golangci-lint run --fix ./...
 

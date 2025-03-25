@@ -31,19 +31,19 @@ services:
       - DB_NAME=tasks
       - DB_SSLMODE=disable
       - HTTP_ADDRESS=0.0.0.0:3012
-      - NOTIFICATION_SERVICE_ADDRESS=notifications:2000
+      - NOTIFICATION_SERVICE_ADDRESS=notification-service:2000
     depends_on:
       postgres:
         condition: service_healthy
-      notifications:
+      notification-service:
         condition: service_started
     networks:
       - app-network
 
-  notifications:
+  notification-service:
     build:
       context: .
-      dockerfile: notifications/Dockerfile
+      dockerfile: notification-service/Dockerfile
     ports:
       - "2000:2000"
     environment:

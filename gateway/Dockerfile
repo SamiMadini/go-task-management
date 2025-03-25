@@ -8,7 +8,7 @@ WORKDIR /deps
 COPY go.work go.work.sum ./
 COPY commons/go.mod commons/go.sum ./commons/
 COPY gateway/go.mod gateway/go.sum ./gateway/
-COPY notifications/go.mod notifications/go.sum ./notifications/
+COPY notification-service/go.mod notification-service/go.sum ./notification-service/
 COPY email-service/src/go.mod email-service/src/go.sum ./email-service/src/
 
 # Download dependencies
@@ -26,7 +26,7 @@ COPY --from=deps /go/pkg /go/pkg
 # Copy source code
 COPY commons/ /app/commons/
 COPY gateway/ /app/gateway/
-COPY notifications/ /app/notifications/
+COPY notification-service/ /app/notification-service/
 COPY email-service/src/ /app/email-service/src/
 COPY go.work go.work.sum ./
 
