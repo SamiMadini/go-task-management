@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"sama/go-task-management/gateway/config"
+	"sama/go-task-management/gateway/handlers"
 	"sama/go-task-management/gateway/middleware"
 	"sama/go-task-management/gateway/routes"
 
@@ -40,7 +41,10 @@ func main() {
 	router := routes.NewRouter()
 
 	// Create handler instance
-	handler := NewHandler(cfg)
+	handler, err := handlers.NewHandler(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create handler: %v", err)
+	}
 
 	// Register routes
 	router.RegisterRoutes(handler, middleware.DefaultCorsConfig(), middleware.DefaultAuthConfig(cfg.JWTSecret))
@@ -55,7 +59,7 @@ func main() {
 
 	// Create server with middleware chain
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.Port),
 		Handler: chain.Then(router.GetMux()),
 	}
 

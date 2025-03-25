@@ -19,7 +19,6 @@ export default function ResetPasswordPage() {
   const [validationError, setValidationError] = useState("")
   const [isSubmitted, setIsSubmitted] = useState(false)
 
-  // Get token from URL
   const token = searchParams.get("token")
 
   useEffect(() => {
@@ -50,7 +49,6 @@ export default function ResetPasswordPage() {
       await resetPassword({ token, password })
       setIsSubmitted(true)
     } catch (err) {
-      // Error is handled by the Redux store
       console.error("Password reset failed:", err)
     }
   }
@@ -74,7 +72,7 @@ export default function ResetPasswordPage() {
   }
 
   if (!token) {
-    return null // Will redirect in useEffect
+    return null
   }
 
   return (

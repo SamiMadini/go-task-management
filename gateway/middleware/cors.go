@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -42,15 +44,11 @@ func CorsMiddleware(config CorsConfig) func(http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ", "))
 			w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.AllowedHeaders, ", "))
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", string(config.MaxAge))
+			w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 
-			allowed := false
-			for _, allowedOrigin := range config.AllowedOrigins {
-				if origin == allowedOrigin {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-					allowed = true
-					break
-				}
+			allowed := slices.Contains(config.AllowedOrigins, origin)
+			if allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
 
 			// If origin not in allowed list but exists, use it (development convenience)

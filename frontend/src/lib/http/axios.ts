@@ -12,18 +12,12 @@ export const axiosInstance = axios.create({
   withCredentials: false,
 })
 
-// Add a request interceptor to add the bearer token
 axiosInstance.interceptors.request.use(
   (config) => {
     const state = store.getState()
     const token = state.auth.accessToken
 
     if (token) {
-      // console.log("Adding bearer token to request:", {
-      //   url: config.url,
-      //   hasToken: !!token,
-      //   tokenPreview: token.substring(0, 10) + "...",
-      // })
       config.headers.Authorization = `Bearer ${token}`
     } else {
       console.log("No token available for request:", {
@@ -38,7 +32,6 @@ axiosInstance.interceptors.request.use(
   }
 )
 
-// Add a response interceptor to handle 401 errors
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {

@@ -13,9 +13,9 @@ type RootState = {
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth"], // Only persist auth state
-  blacklist: [], // Don't persist these reducers
-  debug: true, // Always enable debug logging
+  whitelist: ["auth"],
+  blacklist: [],
+  debug: true,
   stateReconciler: (inboundState: Partial<RootState>, originalState: RootState, reducedState: RootState) => {
     console.log("State reconciler called:", {
       inboundState: {
@@ -35,7 +35,6 @@ const persistConfig = {
       },
     })
 
-    // Ensure we're properly merging the persisted state
     return {
       ...reducedState,
       auth: {
@@ -60,12 +59,11 @@ export const store = configureStore({
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
-  devTools: true, // Always enable dev tools
+  devTools: true,
 })
 
 export const persistor = persistStore(store)
 
-// Add debug logging for store state changes
 store.subscribe(() => {
   const state = store.getState() as RootState
   console.log("Redux store state changed:", {

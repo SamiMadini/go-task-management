@@ -29,7 +29,11 @@ func DefaultAuthConfig(jwtSecret string) AuthConfig {
 		JWTSecret: jwtSecret,
 		PublicPaths: []string{
 			"/api/_health",
-			"/api/v1/auth/",
+			"/api/v1/auth/signin",
+			"/api/v1/auth/signup",
+			"/api/v1/auth/refresh-token",
+			"/api/v1/auth/forgot-password",
+			"/api/v1/auth/reset-password",
 		},
 		SwaggerPrefix: "/swagger/",
 	}
@@ -50,6 +54,7 @@ func AuthMiddleware(config AuthConfig) func(http.Handler) http.Handler {
 
 			claims, err := validateAuthHeader(r, config)
 			if err != nil {
+				fmt.Printf("AuthMiddleware: Authentication failed: %v\n", err)
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
@@ -65,8 +70,10 @@ func isPublicPath(path string, config AuthConfig) bool {
 		return true
 	}
 
+	path = strings.TrimSuffix(path, "/")
 	for _, publicPath := range config.PublicPaths {
-		if strings.HasPrefix(path, publicPath) {
+		publicPath = strings.TrimSuffix(publicPath, "/")
+		if path == publicPath {
 			return true
 		}
 	}
@@ -87,11 +94,13 @@ func validateAuthHeader(r *http.Request, config AuthConfig) (*AuthClaims, error)
 
 	token, err := ParseToken(parts[1], config.JWTSecret)
 	if err != nil {
+		fmt.Printf("validateAuthHeader: Token validation failed: %v\n", err)
 		return nil, fmt.Errorf("JWT::Invalid token")
 	}
 
 	claims, ok := token.Claims.(*AuthClaims)
 	if !ok || !token.Valid {
+		fmt.Printf("validateAuthHeader: Invalid token claims\n")
 		return nil, fmt.Errorf("JWT::Invalid token claims")
 	}
 

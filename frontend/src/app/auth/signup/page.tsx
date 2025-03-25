@@ -21,9 +21,8 @@ export default function SignUpPage() {
     e.preventDefault()
     try {
       await signUp({ handle, email, password })
-      router.push("/tasks") // Redirect to tasks page after successful registration
+      router.push("/tasks")
     } catch (err) {
-      // Error is handled by the Redux store
       console.error("Sign up failed:", err)
     }
   }

@@ -20,7 +20,6 @@ export default function ForgotPasswordPage() {
       await forgotPassword(email)
       setIsSubmitted(true)
     } catch (err) {
-      // Error is handled by the Redux store
       console.error("Forgot password request failed:", err)
     }
   }

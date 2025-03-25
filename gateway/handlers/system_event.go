@@ -1,11 +1,21 @@
-package main
+package handlers
 
 import (
 	"log"
 	"net/http"
-
-	commons "sama/go-task-management/commons"
 )
+
+type SystemEventHandler struct {
+	*BaseHandler
+}
+
+func NewSystemEventHandler(base *BaseHandler) *SystemEventHandler {
+	return &SystemEventHandler{BaseHandler: base}
+}
+
+type GetAllTaskSystemEventsResponse struct {
+	Events []TaskSystemEventResponse `json:"events"`
+}
 
 // @Summary Get all task system events
 // @Description Retrieves all system events related to tasks
@@ -14,17 +24,17 @@ import (
 // @Produce json
 // @Success 200 {object} GetAllTaskSystemEventsResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /system-events [get]
-func (h *handler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request) {
+// @Router /task-system-events [get]
+func (h *SystemEventHandler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := h.taskSystemEventRepository.GetAll()
 	if err != nil {
 		log.Printf("Failed to get all task system events: %v", err)
-		commons.InternalServerErrorHandler(w)
+		h.respondWithError(w, http.StatusInternalServerError, "Failed to fetch system events")
 		return
 	}
 
 	if len(events) == 0 {
-		commons.WriteJSON(w, http.StatusOK, GetAllTaskSystemEventsResponse{
+		h.respondWithJSON(w, http.StatusOK, GetAllTaskSystemEventsResponse{
 			Events: []TaskSystemEventResponse{},
 		})
 		return
@@ -48,5 +58,5 @@ func (h *handler) GetAllTaskSystemEvents(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	commons.WriteJSON(w, http.StatusOK, response)
+	h.respondWithJSON(w, http.StatusOK, response)
 }
