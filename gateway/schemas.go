@@ -9,6 +9,7 @@ type UserResponse struct {
 	ID     string `json:"id"`
 	Handle string `json:"handle"`
 	Email  string `json:"email"`
+	Status string `json:"status"`
 }
 
 type GetTaskResponse struct {

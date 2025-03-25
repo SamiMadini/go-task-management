@@ -15,19 +15,31 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type SignupRequest struct {
+type UserResponse struct {
+	ID     string `json:"id"`
+	Handle string `json:"handle"`
+	Email  string `json:"email"`
+	Status string `json:"status"`
+}
+
+type SignUpRequest struct {
 	Handle   string `json:"handle"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type LoginRequest struct {
+type SignUpResponse struct {
+	User  UserResponse   `json:"user"`
+	Token TokenResponse  `json:"token"`
+}
+
+type SignInRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type LoginResponse struct {
-	User  SignupResponse `json:"user"`
+type SignInResponse struct {
+	User  UserResponse   `json:"user"`
 	Token TokenResponse  `json:"token"`
 }
 
@@ -117,14 +129,14 @@ func (h *AuthHandler) generateSalt() string {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param user body LoginRequest true "Sign in credentials"
-// @Success 200 {object} LoginResponse
+// @Param user body SignInRequest true "Sign in credentials"
+// @Success 200 {object} SignInResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /auth/signin [post]
 func (h *AuthHandler) Signin(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	var req SignInRequest
 	if err := h.decodeJSON(r, &req); err != nil {
 		log.Printf("Error decoding request: %v", err)
 		h.respondWithError(w, http.StatusBadRequest, "Invalid request payload")
@@ -158,13 +170,9 @@ func (h *AuthHandler) Signin(w http.ResponseWriter, r *http.Request) {
 
 	tokenResponse := h.generateTokens(user.ID)
 
-	userResponse := SignupResponse{}
-	userResponse.User.ID = user.ID
-	userResponse.User.Handle = user.Handle
-	userResponse.User.Email = user.Email
-	userResponse.User.Status = user.Status
+	userResponse := UserResponse{ID: user.ID, Handle: user.Handle, Email: user.Email, Status: user.Status}
 
-	response := LoginResponse{
+	response := SignInResponse{
 		User:  userResponse,
 		Token: tokenResponse,
 	}
@@ -338,8 +346,8 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param user body SignupRequest true "User registration data"
-// @Success 201 {object} SignupResponse
+// @Param user body SignUpRequest true "User registration data"
+// @Success 201 {object} SignUpResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 409 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -350,7 +358,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req SignupRequest
+	var req SignUpRequest
 	if err := h.decodeJSON(r, &req); err != nil {
 		log.Printf("Invalid signup request: %v", err)
 		h.respondWithError(w, http.StatusBadRequest, "Invalid request format")
@@ -415,18 +423,12 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SignupResponse{
-		User: struct {
-			ID     string `json:"id"`
-			Handle string `json:"handle"`
-			Email  string `json:"email"`
-			Status string `json:"status"`
-		}{
-			ID:     result.ID,
-			Handle: result.Handle,
-			Email:  result.Email,
-			Status: result.Status,
-		},
+	userResponse := UserResponse{ID: result.ID, Handle: result.Handle, Email: result.Email, Status: result.Status}
+	tokenResponse := h.generateTokens(result.ID)
+
+	response := SignUpResponse{
+		User:  userResponse,
+		Token: tokenResponse,
 	}
 
 	h.respondWithJSON(w, http.StatusCreated, response)

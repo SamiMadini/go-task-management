@@ -183,12 +183,12 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 		DueDate:     task.DueDate,
 		CreatedAt:   task.CreatedAt,
 		UpdatedAt:   task.UpdatedAt,
-		Creator:     UserResponse{ID: creator.ID, Handle: creator.Handle, Email: creator.Email},
+		Creator:     UserResponse{ID: creator.ID, Handle: creator.Handle, Email: creator.Email, Status: creator.Status},
 		Events:      events,
 	}
 
 	if assignee != nil {
-		response.Assignee = &UserResponse{ID: assignee.ID, Handle: assignee.Handle, Email: assignee.Email}
+		response.Assignee = &UserResponse{ID: assignee.ID, Handle: assignee.Handle, Email: assignee.Email, Status: assignee.Status}
 	}
 
 	h.respondWithJSON(w, http.StatusOK, response)
@@ -277,6 +277,7 @@ func (h *TaskHandler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 				ID:     creator.ID,
 				Handle: creator.Handle,
 				Email:  creator.Email,
+				Status: creator.Status,
 			},
 			Events: events,
 		}
@@ -286,6 +287,7 @@ func (h *TaskHandler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 				ID:     assignee.ID,
 				Handle: assignee.Handle,
 				Email:  assignee.Email,
+				Status: assignee.Status,
 			}
 		}
 	}
