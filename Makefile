@@ -22,26 +22,26 @@ dev-start-notifications-service:
 
 
 dc-start:
-	docker compose up
+	COMPOSE_BAKE=true docker compose up
 
 dc-start-with-build:
-	docker compose up --build
+	COMPOSE_BAKE=true docker compose up --build
 
 dc-stop:
-	docker compose down
+	COMPOSE_BAKE=true docker compose down
 
 dc-restart:
-	docker compose down
-	docker compose up
+	COMPOSE_BAKE=true docker compose down
+	COMPOSE_BAKE=true docker compose up
 
 dc-build:
-	docker compose build
+	COMPOSE_BAKE=true docker compose build
 
 dc-build-gateway:
-	docker compose build gateway
+	COMPOSE_BAKE=true docker compose build gateway
 
 dc-build-notifications:
-	docker compose build notifications
+	COMPOSE_BAKE=true docker compose build notifications
 
 dc-reset-db:
 	docker volume rm go-task-management_postgres-data
