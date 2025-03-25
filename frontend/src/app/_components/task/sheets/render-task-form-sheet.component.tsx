@@ -52,7 +52,7 @@ export default function RenderTaskFormSheet({
                   status: data.status,
                 }
 
-                response = await axiosInstance.put(`/api/tasks/${task.id}`, body, {
+                response = await axiosInstance.put(`/api/v1/tasks/${task.id}`, body, {
                   headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -67,7 +67,7 @@ export default function RenderTaskFormSheet({
                   status: data.status,
                 }
 
-                response = await axiosInstance.post("/api/tasks", body, {
+                response = await axiosInstance.post("/api/v1/tasks", body, {
                   headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",

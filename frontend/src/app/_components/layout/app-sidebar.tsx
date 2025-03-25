@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, LayoutDashboard, ListTodo, Settings } from "lucide-react"
+import { Home, LayoutDashboard, ListTodo, LogIn, Settings } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -35,6 +35,14 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive>
+                  <Link href="/auth/signin">
+                    <LogIn />
+                    <span>Sign In</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive>
                   <Link href="/">

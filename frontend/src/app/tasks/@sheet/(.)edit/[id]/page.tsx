@@ -13,7 +13,7 @@ export default async function TaskEditSheetPage({ params }: Props) {
 
   let task: GetOneTaskInterface | null = null
   try {
-    const response = await axiosInstance.get(`/api/tasks/${id}`)
+    const response = await axiosInstance.get(`/api/v1/tasks/${id}`)
     task = response.data
   } catch (error) {
     console.error("Error fetching task:", error)

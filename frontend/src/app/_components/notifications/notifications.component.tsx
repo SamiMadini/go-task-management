@@ -16,7 +16,7 @@ export function NotificationsComponent() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await axiosInstance.get("/api/notifications")
+        const response = await axiosInstance.get("/api/v1/notifications")
         if (response.data && response.data.in_app_notifications) {
           setNotifications(response.data.in_app_notifications)
         }
@@ -34,7 +34,7 @@ export function NotificationsComponent() {
 
   const handleReadNotification = async (notificationId: number, isRead: boolean) => {
     try {
-      await axiosInstance.post(`/api/notifications/${notificationId}/read`, {
+      await axiosInstance.post(`/api/v1/notifications/${notificationId}/read`, {
         isRead: isRead,
       })
       setNotifications(
@@ -55,7 +55,7 @@ export function NotificationsComponent() {
 
   const handleDeleteNotification = async (notificationId: number) => {
     try {
-      await axiosInstance.delete(`/api/notifications/${notificationId}`)
+      await axiosInstance.delete(`/api/v1/notifications/${notificationId}`)
       setNotifications(notifications.filter((notification) => notification.id !== notificationId))
     } catch (error) {
       console.error("Error deleting notification:", error)

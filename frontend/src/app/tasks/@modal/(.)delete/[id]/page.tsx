@@ -20,7 +20,7 @@ export default function TaskDeleteModalPage({ params }: Props) {
       open={true}
       onConfirm={async () => {
         try {
-          const resp = await axiosInstance.delete(`/api/tasks/${id}`)
+          const resp = await axiosInstance.delete(`/api/v1/tasks/${id}`)
 
           if (undefined === resp) {
             throw new Error("No response")

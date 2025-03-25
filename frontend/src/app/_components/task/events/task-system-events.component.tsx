@@ -79,7 +79,7 @@ export default function TaskSystemEventsComponent({
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  }, [rightColumnRef])
 
   return (
     <div
