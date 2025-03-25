@@ -1,10 +1,7 @@
 import type { Metadata } from "next"
 import "../styles/globals.css"
 import localFont from "next/font/local"
-import MainLayout from "@/app/_components/layout/MainLayout"
-import { cookies } from "next/headers"
 import { Providers } from "./providers"
-import { AuthProvider } from "./_components/auth/AuthProvider"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -27,17 +24,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const cookieStore = cookies()
-  const isExpanded = cookieStore.get("app:sidebarExpanded") !== undefined ? cookieStore.get("app:sidebarExpanded")?.value === "true" : true
-
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <AuthProvider>
-            <MainLayout isExpanded={isExpanded}>{children}</MainLayout>
-          </AuthProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

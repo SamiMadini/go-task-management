@@ -1,6 +1,11 @@
+"use client"
+
 import ProjectOverview from "../components/ProjectOverview"
 import TechStack from "../components/TechStack"
 import ImageGallery from "../components/ImageGallery"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/hooks"
 
 interface ProjectInfo {
   name: string
@@ -19,7 +24,9 @@ interface GalleryImage {
   alt: string
 }
 
-export default async function Page() {
+export default function Home() {
+  const { isAuthenticated } = useAuth()
+
   const projectInfo: ProjectInfo = {
     name: "Task Management System",
     description: "A simple task management with events history.",
@@ -38,6 +45,18 @@ export default async function Page() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="flex justify-end mb-8">
+        {!isAuthenticated ? (
+          <Link href="/auth/signin">
+            <Button>Sign in</Button>
+          </Link>
+        ) : (
+          <Link href="/tasks">
+            <Button>My Tasks</Button>
+          </Link>
+        )}
+      </div>
+
       <h1 className="text-3xl font-bold text-center mb-12">Task Management System</h1>
 
       <ProjectOverview projectInfo={projectInfo} />

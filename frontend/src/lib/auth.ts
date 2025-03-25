@@ -118,8 +118,9 @@ export async function signUp(credentials: SignUpCredentials): Promise<void> {
 export async function signOut(): Promise<void> {
   try {
     store.dispatch(setLoading(true))
-    await axiosInstance.post("/api/v1/auth/signout")
+    // await axiosInstance.post("/api/v1/auth/signout")
     store.dispatch(logout())
+    await persistor.purge()
   } catch (error) {
     store.dispatch(setError(error instanceof Error ? error.message : "An error occurred"))
     throw error

@@ -25,7 +25,7 @@ export default function SignInPage() {
       // Wait for the store to be persisted
       await persistor.flush()
       const returnUrl = searchParams.get("returnUrl")
-      router.push(returnUrl ? decodeURIComponent(returnUrl) : "/")
+      router.push(returnUrl ? decodeURIComponent(returnUrl) : "/tasks")
     } catch (err) {
       // Error is handled by the Redux store
       console.error("Sign in failed:", err)
