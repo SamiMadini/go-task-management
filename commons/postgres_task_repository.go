@@ -268,8 +268,8 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 				'action', e.action,
 				'message', e.message,
 				'json_data', e.json_data,
-				'emit_at', e.emit_at,
-				'created_at', e.created_at
+				'emit_at', to_char(e.emit_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+				'created_at', to_char(e.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 			)) as events
 		FROM tasks t
 		LEFT JOIN task_system_events e ON t.id = e.task_id
@@ -287,6 +287,7 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 		var task Task
 		var eventsJSON []byte
 		var assigneeID sql.NullString
+		var dueDate sql.NullTime
 
 		err := rows.Scan(
 			&task.ID,
@@ -296,7 +297,7 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 			&task.Description,
 			&task.Status,
 			&task.Priority,
-			&task.DueDate,
+			&dueDate,
 			&task.CreatedAt,
 			&task.UpdatedAt,
 			&eventsJSON,
@@ -307,6 +308,10 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 
 		if assigneeID.Valid {
 			task.AssigneeID = &assigneeID.String
+		}
+
+		if dueDate.Valid {
+			task.DueDate = dueDate.Time
 		}
 
 		if eventsJSON != nil {
