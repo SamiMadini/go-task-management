@@ -92,22 +92,36 @@ func main() {
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			allowedOrigins := []string{"http://localhost:3000", "http://localhost:3010", "http://localhost:3012"}
+			allowedOrigins := []string{
+				"http://localhost:3000",
+				"http://localhost:3010",
+				"http://localhost:3012",
+				"http://localhost:8080",
+				"http://frontend:3010",  // Docker service name
+			}
 
+			// Set default CORS headers
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+
+			// Check if origin is allowed
+			allowed := false
 			for _, allowedOrigin := range allowedOrigins {
 				if origin == allowedOrigin {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
+					allowed = true
 					break
 				}
 			}
 
-			if w.Header().Get("Access-Control-Allow-Origin") == "" {
-				w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+			// If origin not in allowed list but exists, use it (development convenience)
+			if !allowed && origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
+			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return

@@ -40,6 +40,7 @@ FROM golang:1.24-alpine
 WORKDIR /app
 
 COPY --from=builder /app/gateway/gateway /app/
+COPY gateway/.env /app/.env
 
 EXPOSE 8080
 

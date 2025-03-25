@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"net/http"
-	"os"
 	"strings"
+
+	commons "sama/go-task-management/commons"
 
 	jwtv5 "github.com/golang-jwt/jwt/v5"
 )
@@ -20,9 +21,16 @@ type AuthClaims struct {
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow OPTIONS requests to pass through
+		if r.Method == "OPTIONS" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Allow certain paths without authentication
 		if r.URL.Path == "/api/_health" ||
 			strings.HasPrefix(r.URL.Path, "/swagger/") ||
-			strings.HasPrefix(r.URL.Path, "/api/auth/") {
+			strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -58,7 +66,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 func parseToken(tokenString string) (*jwtv5.Token, error) {
 	return jwtv5.ParseWithClaims(tokenString, &AuthClaims{}, func(token *jwtv5.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return []byte(commons.GetEnv("JWT_SECRET", "your-secret-key")), nil
 	})
 }
 
