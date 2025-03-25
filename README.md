@@ -21,12 +21,12 @@ The frontend is built with Next.js and Tailwind CSS, providing an intuitive user
 
 ## Technology Stack
 
-- **API Gateway**: Custom implementation in Go (Golang)
+- **API Gateway**: Custom implementation in Go (Golang) with Authentication
 - **Frontend**: TypeScript, Next.js, Tailwind CSS
 - **Database**: PostgreSQL
 - **Communication**: gRPC for service-to-service communication
 - **Containerization**: Docker
-- **AWS**: Lambda, EKS, CDK
+- **AWS**: Lambda, SQS, CDK
 
 
 ### API
@@ -37,17 +37,24 @@ The frontend is built with Next.js and Tailwind CSS, providing an intuitive user
 - Routes:
   - GET /api/_health - Health check route
 
-  - GET /api/tasks - List all tasks
-  - POST /api/tasks - Create a new task
-  - GET /api/tasks/{id} - Get task details
-  - PUT /api/tasks/{id} - Update a task
-  - DELETE /api/tasks/{id} - Delete a task
+  - POST /api/v1/auth/signin - Sign-In a user
+  - POST /api/v1/auth/signup - Sign-Up a user
+  - POST /api/v1/auth/refresh-token - Refresh access token of the user
+  - POST /api/v1/auth/signout - Sign-Out a user
+  - POST /api/v1/auth/forgot-password - Start forgot password flow
+  - POST /api/v1/auth/reset-password - End forgot password flow
 
-  - GET /api/notifications
-  - POST /api/notifications/{id}/read
-  - DELETE /api/notifications/{id}
+  - GET     /api/v1/tasks - List all tasks
+  - POST    /api/v1/tasks - Create a new task
+  - GET     /api/v1/tasks/{id} - Get task details
+  - PUT     /api/v1/tasks/{id} - Update a task
+  - DELETE  /api/v1/tasks/{id} - Delete a task
 
-  - GET /api/task-system-events
+  - GET     /api/v1/notifications
+  - POST    /api/v1/notifications/{id}/read
+  - DELETE  /api/v1/notifications/{id}
+
+  - GET /api/v1/task-system-events
 
 ### Notification Microservice
 
