@@ -5,14 +5,12 @@ import (
 	"time"
 )
 
-// UserResponse represents a user in API responses
 type UserResponse struct {
 	ID     string `json:"id"`
 	Handle string `json:"handle"`
 	Email  string `json:"email"`
 }
 
-// GetTaskResponse represents the response for a single task
 type GetTaskResponse struct {
 	ID          string                    `json:"id"`
 	Title       string                    `json:"title"`
@@ -31,7 +29,6 @@ type GetAllTasksResponse struct {
 	Tasks []GetTaskResponse `json:"tasks"`
 }
 
-// CreateTaskRequest represents the request body for creating a task
 type CreateTaskRequest struct {
 	Title       string  `json:"title" validate:"required,min=3,max=100"`
 	Description string  `json:"description" validate:"max=500"`
@@ -76,7 +73,6 @@ type CreateTaskResponse struct {
 	TaskId string `json:"task_id"`
 }
 
-// UpdateTaskRequest represents the request body for updating a task
 type UpdateTaskRequest struct {
 	Title       string  `json:"title" validate:"omitempty,min=3,max=100"`
 	Description string  `json:"description" validate:"omitempty,max=500"`

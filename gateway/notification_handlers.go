@@ -6,6 +6,7 @@ import (
 	"time"
 
 	commons "sama/go-task-management/commons"
+	"sama/go-task-management/gateway/middleware"
 )
 
 // @Summary Get all in-app notifications
@@ -17,7 +18,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications [get]
 func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -73,7 +74,7 @@ func (h *handler) GetAllInAppNotifications(w http.ResponseWriter, r *http.Reques
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications/{id}/read [put]
 func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -140,7 +141,7 @@ func (h *handler) UpdateOnRead(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /notifications/{id} [delete]
 func (h *handler) DeleteInAppNotification(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return

@@ -9,6 +9,7 @@ import (
 
 	commons "sama/go-task-management/commons"
 	pb "sama/go-task-management/commons/api"
+	"sama/go-task-management/gateway/middleware"
 
 	"crypto/rand"
 
@@ -142,13 +143,13 @@ func (h *handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := parseToken(req.RefreshToken)
+	token, err := middleware.ParseToken(req.RefreshToken, commons.GetEnv("JWT_SECRET", "your-secret-key"))
 	if err != nil {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Invalid refresh token")
 		return
 	}
 
-	claims, ok := token.Claims.(*AuthClaims)
+	claims, ok := token.Claims.(*middleware.AuthClaims)
 	if !ok || !token.Valid {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Invalid refresh token claims")
 		return
@@ -174,7 +175,7 @@ func (h *handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} ErrorResponse
 // @Router /auth/signout [post]
 func (h *handler) Signout(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return

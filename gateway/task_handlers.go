@@ -11,6 +11,7 @@ import (
 
 	commons "sama/go-task-management/commons"
 	pb "sama/go-task-management/commons/api"
+	"sama/go-task-management/gateway/middleware"
 
 	"google.golang.org/grpc"
 )
@@ -47,7 +48,7 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user has permission to view the task
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID != task.CreatorID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
 		commons.WriteJSONError(w, http.StatusForbidden, "You don't have permission to view this task")
 		return
@@ -117,7 +118,7 @@ func (h *handler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks [get]
 func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -217,7 +218,7 @@ func (h *handler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks [post]
 func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -363,7 +364,7 @@ func (h *handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} ErrorResponse
 // @Router /tasks/{id} [put]
 func (h *handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	userID := GetUserIDFromContext(r)
+	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
 		commons.WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return

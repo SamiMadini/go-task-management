@@ -12,8 +12,9 @@ import (
 	"net/http"
 
 	commons "sama/go-task-management/commons"
-
 	pb "sama/go-task-management/commons/api"
+	"sama/go-task-management/gateway/config"
+	"sama/go-task-management/gateway/middleware"
 
 	_ "sama/go-task-management/gateway/docs"
 
@@ -29,14 +30,17 @@ type ErrorResponse struct {
 	Error string `json:"error" example:"Invalid task ID format"`
 }
 
-var httpAddress = commons.GetEnv("HTTP_ADDRESS", "localhost:8080")
-var notificationServiceAddress = commons.GetEnv("NOTIFICATION_SERVICE_ADDRESS", "localhost:2000")
-
 func main() {
+	// Load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	ctx := context.Background()
 	conn, err := grpc.DialContext(
 		ctx,
-		notificationServiceAddress,
+		cfg.NotificationServiceAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -44,7 +48,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	log.Printf("Connected to notification service at %s", notificationServiceAddress)
+	log.Printf("Connected to notification service at %s", cfg.NotificationServiceAddr)
 
 	notificationServiceClient := pb.NewNotificationServiceClient(conn)
 
@@ -89,55 +93,22 @@ func main() {
 		).ServeHTTP(w, r)
 	})
 
-	corsMiddleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			allowedOrigins := []string{
-				"http://localhost:3000",
-				"http://localhost:3010",
-				"http://localhost:3012",
-				"http://localhost:8080",
-				"http://frontend:3010",  // Docker service name
-			}
-
-			// Set default CORS headers
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
-
-			// Check if origin is allowed
-			allowed := false
-			for _, allowedOrigin := range allowedOrigins {
-				if origin == allowedOrigin {
-					w.Header().Set("Access-Control-Allow-Origin", origin)
-					allowed = true
-					break
-				}
-			}
-
-			// If origin not in allowed list but exists, use it (development convenience)
-			if !allowed && origin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-			}
-
-			// Handle preflight requests
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-
 	handler.registerRoutes(mux)
 
-	log.Printf("Starting server on %s", httpAddress)
+	chain := middleware.NewChain(
+		middleware.RecoveryMiddleware,
+		middleware.LoggingMiddleware,
+		middleware.CorsMiddleware(middleware.CorsConfig{
+			AllowedOrigins: cfg.AllowedOrigins,
+			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+			AllowedHeaders: []string{"Content-Type", "Authorization", "X-Requested-With", "Accept"},
+			MaxAge:         86400,
+		}),
+		middleware.AuthMiddleware(middleware.DefaultAuthConfig(cfg.JWTSecret)),
+	)
 
-	chainMiddlewares := corsMiddleware(AuthMiddleware(mux))
-
-	if err := http.ListenAndServe(httpAddress, chainMiddlewares); err != nil {
+	log.Printf("Starting server on %s", cfg.HTTPAddress)
+	if err := http.ListenAndServe(cfg.HTTPAddress, chain.Then(mux)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

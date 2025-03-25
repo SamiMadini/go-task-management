@@ -2,6 +2,7 @@ package main
 
 import (
 	commons "sama/go-task-management/commons"
+	"sama/go-task-management/gateway/middleware"
 	"time"
 
 	jwtv5 "github.com/golang-jwt/jwt/v5"
@@ -17,7 +18,7 @@ type TokenResponse struct {
 }
 
 func generateTokens(userID string) (*TokenResponse, error) {
-	accessToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &AuthClaims{
+	accessToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &middleware.AuthClaims{
 		UserID: userID,
 		RegisteredClaims: jwtv5.RegisteredClaims{
 			ExpiresAt: jwtv5.NewNumericDate(time.Now().Add(time.Duration(ACCESS_TOKEN_EXPIRATION) * time.Minute)),
@@ -25,7 +26,7 @@ func generateTokens(userID string) (*TokenResponse, error) {
 		},
 	})
 
-	refreshToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &AuthClaims{
+	refreshToken := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, &middleware.AuthClaims{
 		UserID: userID,
 		RegisteredClaims: jwtv5.RegisteredClaims{
 			ExpiresAt: jwtv5.NewNumericDate(time.Now().Add(time.Duration(REFRESH_TOKEN_EXPIRATION) * 24 * time.Hour)), // 30 days
