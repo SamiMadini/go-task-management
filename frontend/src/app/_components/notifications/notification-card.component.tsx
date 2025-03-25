@@ -23,7 +23,7 @@ export function NotificationCard({
 
         <PopoverContent className="w-48 space-y-2" align="end">
           {notification.is_read && (
-            <div className="flex items-center gap-2 cursor-pointer">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => onRead(notification.id, false)}>
               <BellDot className="h-5 w-5" /> Mark as unread
             </div>
           )}

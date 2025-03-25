@@ -1,8 +1,6 @@
 import axios from "axios"
 import { store } from "@/lib/store"
 
-// When running in Docker, the backend URL will be set via environment variable
-// When running in browser, we need to use localhost
 const BASE_URL =
   typeof window === "undefined"
     ? process.env.NEXT_PUBLIC_BACKEND_API_URL
@@ -11,7 +9,7 @@ const BASE_URL =
 export const axiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: false, // We don't need credentials since we're using token-based auth
+  withCredentials: false,
 })
 
 // Add a request interceptor to add the bearer token
@@ -21,11 +19,11 @@ axiosInstance.interceptors.request.use(
     const token = state.auth.accessToken
 
     if (token) {
-      console.log("Adding bearer token to request:", {
-        url: config.url,
-        hasToken: !!token,
-        tokenPreview: token.substring(0, 10) + "...",
-      })
+      // console.log("Adding bearer token to request:", {
+      //   url: config.url,
+      //   hasToken: !!token,
+      //   tokenPreview: token.substring(0, 10) + "...",
+      // })
       config.headers.Authorization = `Bearer ${token}`
     } else {
       console.log("No token available for request:", {

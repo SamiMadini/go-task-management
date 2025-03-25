@@ -35,7 +35,7 @@ export function NotificationsComponent() {
   const handleReadNotification = async (notificationId: number, isRead: boolean) => {
     try {
       await axiosInstance.post(`/api/v1/notifications/${notificationId}/read`, {
-        isRead: isRead,
+        is_read: isRead,
       })
       setNotifications(
         notifications.map((notification) => {
