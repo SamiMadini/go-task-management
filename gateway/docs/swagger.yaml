@@ -1,77 +1,83 @@
 basePath: /api/v1
 definitions:
-  main.CreateTaskRequest:
+  auth.UserResponse:
     properties:
+      email:
+        type: string
+      handle:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+    type: object
+  handlers.CreateTaskRequest:
+    properties:
+      assignee_id:
+        type: string
       description:
-        maxLength: 500
         type: string
       due_date:
         type: string
       priority:
-        enum:
-        - 1
-        - 2
-        - 3
         type: integer
       status:
-        enum:
-        - todo
-        - in_progress
-        - done
         type: string
       title:
-        maxLength: 100
-        minLength: 3
         type: string
-    required:
-    - priority
-    - status
-    - title
     type: object
-  main.CreateTaskResponse:
+  handlers.CreateTaskResponse:
     properties:
       task_id:
         type: string
     type: object
-  main.ErrorResponse:
-    description: Error response model
+  handlers.ErrorInfo:
     properties:
-      error:
-        example: Invalid task ID format
+      code:
+        type: string
+      details:
+        type: string
+      message:
         type: string
     type: object
-  main.GetAllInAppNotificationsResponse:
+  handlers.ErrorResponse:
     properties:
-      in_app_notifications:
-        items:
-          $ref: '#/definitions/main.InAppNotificationResponse'
-        type: array
+      code:
+        type: string
+      details:
+        type: string
+      message:
+        type: string
     type: object
-  main.GetAllTaskSystemEventsResponse:
+  handlers.GetAllTaskSystemEventsResponse:
     properties:
       events:
         items:
-          $ref: '#/definitions/main.TaskSystemEventResponse'
+          $ref: '#/definitions/handlers.TaskSystemEventResponse'
         type: array
     type: object
-  main.GetAllTasksResponse:
+  handlers.GetAllTasksResponse:
     properties:
       tasks:
         items:
-          $ref: '#/definitions/main.GetTaskResponse'
+          $ref: '#/definitions/handlers.GetTaskResponse'
         type: array
     type: object
-  main.GetTaskResponse:
+  handlers.GetTaskResponse:
     properties:
+      assignee:
+        $ref: '#/definitions/auth.UserResponse'
       created_at:
         type: string
+      creator:
+        $ref: '#/definitions/auth.UserResponse'
       description:
         type: string
       due_date:
         type: string
       events:
         items:
-          $ref: '#/definitions/main.TaskSystemEventResponse'
+          $ref: '#/definitions/handlers.TaskSystemEventResponse'
         type: array
       id:
         type: string
@@ -84,24 +90,28 @@ definitions:
       updated_at:
         type: string
     type: object
-  main.InAppNotificationResponse:
+  handlers.MetaInfo:
     properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      is_read:
-        type: boolean
-      read_at:
-        type: string
-      title:
-        type: string
-      updated_at:
-        type: string
+      page:
+        type: integer
+      per_page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
     type: object
-  main.TaskSystemEventResponse:
+  handlers.StandardResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/handlers.ErrorInfo'
+      meta:
+        $ref: '#/definitions/handlers.MetaInfo'
+      success:
+        type: boolean
+    type: object
+  handlers.TaskSystemEventResponse:
     properties:
       action:
         type: string
@@ -122,131 +132,154 @@ definitions:
       task_id:
         type: string
     type: object
-  main.UpdateOnReadResponse:
+  handlers.UpdateTaskRequest:
     properties:
-      success:
-        type: boolean
-    type: object
-  main.UpdateTaskRequest:
-    properties:
+      assignee_id:
+        type: string
       description:
-        maxLength: 500
         type: string
       due_date:
         type: string
       priority:
-        enum:
-        - 1
-        - 2
-        - 3
         type: integer
       status:
-        enum:
-        - todo
-        - in_progress
-        - done
         type: string
       title:
-        maxLength: 100
-        minLength: 3
         type: string
     type: object
-  main.UpdateTaskResponse:
+  handlers.UpdateTaskResponse:
     properties:
       task_id:
+        type: string
+    type: object
+  in_app_notification.CreateNotificationInput:
+    properties:
+      message:
+        type: string
+      title:
+        type: string
+      user_id:
+        type: string
+    type: object
+  in_app_notification.NotificationResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      message:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
         type: string
     type: object
 host: localhost:3012
 info:
   contact: {}
-  description: Error response model
+  description: Validation error for a specific field
   title: Task Management API
   version: "1.0"
 paths:
   /notifications:
     get:
-      consumes:
-      - application/json
-      description: Retrieves all in-app notifications for the current user
+      description: Retrieves all notifications for the authenticated user
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.GetAllInAppNotificationsResponse'
+            items:
+              $ref: '#/definitions/in_app_notification.NotificationResponse'
+            type: array
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
-      summary: Get all in-app notifications
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get user notifications
+      tags:
+      - notifications
+    post:
+      consumes:
+      - application/json
+      description: Creates a new notification for a user
+      parameters:
+      - description: Notification details
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/in_app_notification.CreateNotificationInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/in_app_notification.NotificationResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create a notification
       tags:
       - notifications
   /notifications/{id}:
     delete:
-      consumes:
-      - application/json
-      description: Deletes a notification from the system
+      description: Deletes a specific notification
       parameters:
       - description: Notification ID
         in: path
         name: id
         required: true
         type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
-      summary: Delete a notification
-      tags:
-      - notifications
-  /notifications/{id}/read:
-    put:
-      consumes:
-      - application/json
-      description: Updates a notification's read status
-      parameters:
-      - description: Notification ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
       responses:
         "200":
           description: OK
+        "403":
+          description: Not authorized to delete this notification
           schema:
-            $ref: '#/definitions/main.UpdateOnReadResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete notification
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    post:
+      description: Marks a specific notification as read
+      parameters:
+      - description: Notification ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Not authorized to access this notification
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Mark notification as read
       tags:
       - notifications
-  /system-events:
+  /task-system-events:
     get:
       consumes:
       - application/json
@@ -257,11 +290,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.GetAllTaskSystemEventsResponse'
+            allOf:
+            - $ref: '#/definitions/handlers.StandardResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/handlers.GetAllTaskSystemEventsResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get all task system events
       tags:
       - system-events
@@ -269,47 +311,55 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieves all tasks in the system
+      description: Retrieves all tasks for the authenticated user
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.GetAllTasksResponse'
-        "500":
-          description: Internal Server Error
+            $ref: '#/definitions/handlers.GetAllTasksResponse'
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get all tasks
       tags:
       - tasks
     post:
       consumes:
       - application/json
-      description: Creates a new task in the system
+      description: Creates a new task for the authenticated user
       parameters:
       - description: Task details
         in: body
-        name: task
+        name: input
         required: true
         schema:
-          $ref: '#/definitions/main.CreateTaskRequest'
+          $ref: '#/definitions/handlers.CreateTaskRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/main.CreateTaskResponse'
+            $ref: '#/definitions/handlers.CreateTaskResponse'
         "400":
-          description: Bad Request
+          description: Invalid request payload
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Create a new task
       tags:
       - tasks
@@ -317,7 +367,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Deletes a task from the system
+      description: Deletes a task by its ID
       parameters:
       - description: Task ID
         in: path
@@ -327,20 +377,28 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: Task deleted successfully
         "400":
-          description: Bad Request
+          description: Invalid task ID
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
         "404":
-          description: Not Found
+          description: Task not found
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Delete a task
       tags:
       - tasks
@@ -360,57 +418,69 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.GetTaskResponse'
+            $ref: '#/definitions/handlers.GetTaskResponse'
         "400":
-          description: Bad Request
+          description: Invalid task ID
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
         "404":
-          description: Not Found
+          description: Task not found
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Get a task by ID
       tags:
       - tasks
     put:
       consumes:
       - application/json
-      description: Updates an existing task
+      description: Updates an existing task by its ID
       parameters:
       - description: Task ID
         in: path
         name: id
         required: true
         type: string
-      - description: Updated task details
+      - description: Task update details
         in: body
-        name: task
+        name: input
         required: true
         schema:
-          $ref: '#/definitions/main.UpdateTaskRequest'
+          $ref: '#/definitions/handlers.UpdateTaskRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.UpdateTaskResponse'
+            $ref: '#/definitions/handlers.UpdateTaskResponse'
         "400":
-          description: Bad Request
+          description: Invalid request payload
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
         "404":
-          description: Not Found
+          description: Task not found
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/handlers.ErrorResponse'
       summary: Update a task
       tags:
       - tasks

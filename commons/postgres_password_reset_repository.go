@@ -8,20 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// @Description PasswordResetToken model
-type PasswordResetToken struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"`
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expires_at"`
-	Used      bool      `json:"used"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type PasswordResetTokenRepositoryInterface interface {
 	Create(token PasswordResetToken) (PasswordResetToken, error)
 	GetByToken(token string) (PasswordResetToken, error)
-	MarkAsUsed(id string) error
+	MarkAsUsed(token string) error
 	DeleteExpired() error
 }
 
@@ -34,77 +24,96 @@ func NewPostgresPasswordResetTokenRepository(db *sql.DB) *PostgresPasswordResetT
 }
 
 func (r *PostgresPasswordResetTokenRepository) Create(token PasswordResetToken) (PasswordResetToken, error) {
-	if token.ID == "" {
-		token.ID = uuid.New().String()
+	dbToken := &DBPasswordResetToken{}
+	dbToken.FromPasswordResetToken(token)
+
+	if dbToken.ID == "" {
+		dbToken.ID = uuid.New().String()
+	}
+
+	if dbToken.CreatedAt.IsZero() {
+		dbToken.CreatedAt = time.Now()
 	}
 
 	_, err := r.DB.Exec(`
 		INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`,
-		token.ID,
-		token.UserID,
-		token.Token,
-		token.ExpiresAt,
-		token.Used,
-		token.CreatedAt,
+		dbToken.ID,
+		dbToken.UserID,
+		dbToken.Token,
+		dbToken.ExpiresAt,
+		dbToken.Used,
+		dbToken.CreatedAt,
 	)
+
 	if err != nil {
-		log.Printf("Error creating password reset token: %v", err)
 		return PasswordResetToken{}, err
 	}
 
-	return token, nil
+	return dbToken.ToPasswordResetToken(), nil
 }
 
 func (r *PostgresPasswordResetTokenRepository) GetByToken(token string) (PasswordResetToken, error) {
-	var resetToken PasswordResetToken
+	var dbToken DBPasswordResetToken
+
 	err := r.DB.QueryRow(`
 		SELECT id, user_id, token, expires_at, used, created_at
 		FROM password_reset_tokens
 		WHERE token = $1 AND used = false AND expires_at > NOW()
 	`, token).Scan(
-		&resetToken.ID,
-		&resetToken.UserID,
-		&resetToken.Token,
-		&resetToken.ExpiresAt,
-		&resetToken.Used,
-		&resetToken.CreatedAt,
+		&dbToken.ID,
+		&dbToken.UserID,
+		&dbToken.Token,
+		&dbToken.ExpiresAt,
+		&dbToken.Used,
+		&dbToken.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return PasswordResetToken{}, nil
-	}
+
 	if err != nil {
-		log.Printf("Error getting password reset token: %v", err)
+		if err == sql.ErrNoRows {
+			return PasswordResetToken{}, ErrNotFound
+		}
 		return PasswordResetToken{}, err
 	}
 
-	return resetToken, nil
+	return dbToken.ToPasswordResetToken(), nil
 }
 
-func (r *PostgresPasswordResetTokenRepository) MarkAsUsed(id string) error {
-	_, err := r.DB.Exec(`
+func (r *PostgresPasswordResetTokenRepository) MarkAsUsed(token string) error {
+	result, err := r.DB.Exec(`
 		UPDATE password_reset_tokens
 		SET used = true
-		WHERE id = $1
-	`, id)
+		WHERE token = $1 AND used = false AND expires_at > NOW()
+	`, token)
+
 	if err != nil {
-		log.Printf("Error marking password reset token as used: %v", err)
 		return err
 	}
 
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	log.Println("Password reset token marked as used successfully")
 	return nil
 }
 
 func (r *PostgresPasswordResetTokenRepository) DeleteExpired() error {
 	_, err := r.DB.Exec(`
 		DELETE FROM password_reset_tokens
-		WHERE expires_at < NOW() OR used = true
+		WHERE expires_at <= NOW() OR used = true
 	`)
+
 	if err != nil {
-		log.Printf("Error deleting expired password reset tokens: %v", err)
 		return err
 	}
 
+	log.Println("Expired password reset tokens deleted successfully")
 	return nil
 }

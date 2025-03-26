@@ -21,8 +21,6 @@ type TaskSystemEventResponse struct {
 	EmitAt        time.Time `json:"emit_at"`
 	CreatedAt     time.Time `json:"created_at"`
 }
-
-// StandardResponse wraps all API responses
 type StandardResponse struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data,omitempty"`
@@ -62,13 +60,4 @@ const (
 	TaskPriorityLow    TaskPriority = 1
 	TaskPriorityMedium TaskPriority = 2
 	TaskPriorityHigh   TaskPriority = 3
-)
-
-const (
-	ErrCodeValidation     = "VALIDATION_ERROR"
-	ErrCodeNotFound       = "NOT_FOUND"
-	ErrCodeUnauthorized   = "UNAUTHORIZED"
-	ErrCodeForbidden      = "FORBIDDEN"
-	ErrCodeInternal       = "INTERNAL_ERROR"
-	ErrCodeBadRequest     = "BAD_REQUEST"
 )

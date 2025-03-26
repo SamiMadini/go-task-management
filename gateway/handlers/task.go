@@ -1,26 +1,33 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
+	"sync"
+	"log"
+	"context"
 
 	"sama/go-task-management/commons"
-	pb "sama/go-task-management/commons/api"
+	"sama/go-task-management/gateway/handlers/constants"
+	"sama/go-task-management/gateway/handlers/validation"
 	"sama/go-task-management/gateway/middleware"
+	"sama/go-task-management/gateway/services/auth"
+	"sama/go-task-management/gateway/services/task"
 
 	"github.com/google/uuid"
 )
 
-const notificationTimeout = 5 * time.Second
-
 type TaskHandler struct {
 	*BaseHandler
+	taskService *task.Service
 }
 
-func NewTaskHandler(base *BaseHandler) *TaskHandler {
-	return &TaskHandler{BaseHandler: base}
+func NewTaskHandler(base *BaseHandler, taskService *task.Service) *TaskHandler {
+	return &TaskHandler{
+		BaseHandler: base,
+		taskService: taskService,
+	}
 }
 
 type GetTaskResponse struct {
@@ -32,8 +39,8 @@ type GetTaskResponse struct {
 	DueDate     time.Time                 `json:"due_date"`
 	CreatedAt   time.Time                 `json:"created_at"`
 	UpdatedAt   time.Time                 `json:"updated_at"`
-	Creator     UserResponse              `json:"creator"`
-	Assignee    *UserResponse             `json:"assignee,omitempty"`
+	Creator     auth.UserResponse         `json:"creator"`
+	Assignee    *auth.UserResponse        `json:"assignee,omitempty"`
 	Events      []TaskSystemEventResponse `json:"events"`
 }
 
@@ -50,46 +57,33 @@ type CreateTaskRequest struct {
 	AssigneeID  *string    `json:"assignee_id,omitempty"`
 }
 
-func (r *CreateTaskRequest) Validate() []ValidationError {
-	var errors []ValidationError
+func (r *CreateTaskRequest) Validate() []validation.ValidationError {
+	var errors []validation.ValidationError
 
-	if r.Title == "" {
-		errors = append(errors, ValidationError{
-			Field:   "title",
-			Message: "Title is required",
-		})
+	if titleErr := validation.ValidateTitle(r.Title); titleErr != nil {
+		errors = append(errors, *titleErr)
 	}
 
-	if len(r.Title) > 200 {
-		errors = append(errors, ValidationError{
-			Field:   "title",
-			Message: "Title must be less than 200 characters",
-		})
+	if descErr := validation.ValidateDescription(r.Description); descErr != nil {
+		errors = append(errors, *descErr)
 	}
 
-	if len(r.Description) > 1000 {
-		errors = append(errors, ValidationError{
-			Field:   "description",
-			Message: "Description must be less than 1000 characters",
-		})
-	}
-
-	if r.Status != string(TaskStatusTodo) && r.Status != string(TaskStatusInProgress) && r.Status != string(TaskStatusDone) {
-		errors = append(errors, ValidationError{
+	if r.Status != constants.TaskStatusTodo && r.Status != constants.TaskStatusInProgress && r.Status != constants.TaskStatusDone {
+		errors = append(errors, validation.ValidationError{
 			Field:   "status",
 			Message: "Invalid status. Must be one of: TODO, IN_PROGRESS, DONE",
 		})
 	}
 
-	if r.Priority < int(TaskPriorityLow) || r.Priority > int(TaskPriorityHigh) {
-		errors = append(errors, ValidationError{
+	if r.Priority < constants.TaskPriorityLow || r.Priority > constants.TaskPriorityHigh {
+		errors = append(errors, validation.ValidationError{
 			Field:   "priority",
 			Message: "Priority must be between 1 and 3",
 		})
 	}
 
 	if r.DueDate.Before(time.Now()) {
-		errors = append(errors, ValidationError{
+		errors = append(errors, validation.ValidationError{
 			Field:   "due_date",
 			Message: "Due date must be in the future",
 		})
@@ -111,39 +105,37 @@ type UpdateTaskRequest struct {
 	AssigneeID  *string    `json:"assignee_id,omitempty"`
 }
 
-func (r *UpdateTaskRequest) Validate() []ValidationError {
-	var errors []ValidationError
+func (r *UpdateTaskRequest) Validate() []validation.ValidationError {
+	var errors []validation.ValidationError
 
-	if r.Title != "" && len(r.Title) > 200 {
-		errors = append(errors, ValidationError{
-			Field:   "title",
-			Message: "Title must be less than 200 characters",
-		})
+	if r.Title != "" {
+		if titleErr := validation.ValidateTitle(r.Title); titleErr != nil {
+			errors = append(errors, *titleErr)
+		}
 	}
 
-	if r.Description != "" && len(r.Description) > 1000 {
-		errors = append(errors, ValidationError{
-			Field:   "description",
-			Message: "Description must be less than 1000 characters",
-		})
+	if r.Description != "" {
+		if descErr := validation.ValidateDescription(r.Description); descErr != nil {
+			errors = append(errors, *descErr)
+		}
 	}
 
-	if r.Status != "" && r.Status != string(TaskStatusTodo) && r.Status != string(TaskStatusInProgress) && r.Status != string(TaskStatusDone) {
-		errors = append(errors, ValidationError{
+	if r.Status != "" && r.Status != constants.TaskStatusTodo && r.Status != constants.TaskStatusInProgress && r.Status != constants.TaskStatusDone {
+		errors = append(errors, validation.ValidationError{
 			Field:   "status",
 			Message: "Invalid status. Must be one of: TODO, IN_PROGRESS, DONE",
 		})
 	}
 
-	if r.Priority != 0 && (r.Priority < int(TaskPriorityLow) || r.Priority > int(TaskPriorityHigh)) {
-		errors = append(errors, ValidationError{
+	if r.Priority != 0 && (r.Priority < constants.TaskPriorityLow || r.Priority > constants.TaskPriorityHigh) {
+		errors = append(errors, validation.ValidationError{
 			Field:   "priority",
 			Message: "Priority must be between 1 and 3",
 		})
 	}
 
 	if !r.DueDate.IsZero() && r.DueDate.Before(time.Now()) {
-		errors = append(errors, ValidationError{
+		errors = append(errors, validation.ValidationError{
 			Field:   "due_date",
 			Message: "Due date must be in the future",
 		})
@@ -156,492 +148,314 @@ type UpdateTaskResponse struct {
 	TaskId string `json:"task_id"`
 }
 
-func createTaskSystemEvent(taskId, correlationId, origin, action, message, jsonData string) commons.TaskSystemEvent {
-	now := time.Now()
-	return commons.TaskSystemEvent{
-		ID:            uuid.New().String(),
-		TaskId:        taskId,
-		CorrelationId: correlationId,
-		Origin:        origin,
-		Action:        action,
-		Message:       message,
-		JsonData:      jsonData,
-		EmitAt:        now,
-		CreatedAt:     now,
-	}
-}
-
-func (h *TaskHandler) marshallJson(v interface{}) string {
-	data, err := json.Marshal(v)
-	if err != nil {
-		h.logger.Printf("Error marshalling JSON: %v", err)
-		return "{}"
-	}
-	return string(data)
-}
-
 // @Summary Get a task by ID
 // @Description Retrieves a specific task by its ID
-// @Description
-// @Description Error scenarios:
-// @Description - Invalid UUID format: Returns 400 with BAD_REQUEST code
-// @Description - Task not found: Returns 404 with NOT_FOUND code
-// @Description - Unauthorized access: Returns 403 with FORBIDDEN code
 // @Tags tasks
 // @Accept json
 // @Produce json
-// @Param id path string true "Task ID (UUID format)"
+// @Param id path string true "Task ID"
 // @Success 200 {object} GetTaskResponse
-// @Failure 400 {object} ErrorResponse "Invalid task ID format"
+// @Failure 400 {object} ErrorResponse "Invalid task ID"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 404 {object} ErrorResponse "Task not found"
-// @Failure 403 {object} ErrorResponse "Access denied - not task owner or assignee"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /tasks/{id} [get]
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Task ID is required", "Path parameter 'id' is missing")
-		return
-	}
-
-	if !commons.IsValidUUID(id) {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid task ID format", "Task ID must be a valid UUID")
-		return
-	}
-
-	task, err := h.taskRepository.GetByID(id)
-	if err != nil {
-		h.logger.Printf("Error fetching task %s: %v", id, err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch task", err.Error())
+	taskID := r.PathValue("id")
+	if taskID == "" {
+		h.respondWithError(w, http.StatusBadRequest, constants.ErrCodeBadRequest, "Task ID is required", "")
 		return
 	}
 
 	userID := middleware.GetUserIDFromContext(r)
-	if userID != task.CreatorID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
-		h.respondWithError(w, http.StatusForbidden, ErrCodeForbidden, "Access denied", "You don't have permission to view this task")
+	if userID == "" {
+		h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	creator, err := h.userRepository.GetByID(task.CreatorID)
+	task, err := h.taskService.GetTask(r.Context(), taskID, userID)
 	if err != nil {
-		h.logger.Printf("Error fetching creator details: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch creator details", err.Error())
+		switch err {
+		case commons.ErrNotFound:
+			h.respondWithError(w, http.StatusNotFound, constants.ErrCodeNotFound, "Task not found", "")
+		case commons.ErrUnauthorized:
+			h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
+		default:
+			h.respondWithError(w, http.StatusInternalServerError, constants.ErrCodeInternal, "Internal server error", "")
+		}
 		return
 	}
 
-	var assignee *commons.User
-	if task.AssigneeID != nil {
-		assigneeUser, err := h.userRepository.GetByID(*task.AssigneeID)
-		if err != nil {
-			h.logger.Printf("Error fetching assignee details: %v", err)
-			h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch assignee details", err.Error())
-			return
-		}
-		assignee = &assigneeUser
-	}
-
-	events := make([]TaskSystemEventResponse, len(task.Events))
-	for i, event := range task.Events {
-		events[i] = TaskSystemEventResponse{
-			ID:            event.ID,
-			TaskId:        event.TaskId,
-			CorrelationId: event.CorrelationId,
-			Origin:        event.Origin,
-			Action:        event.Action,
-			Message:       event.Message,
-			JsonData:      event.JsonData,
-			EmitAt:        event.EmitAt,
-			CreatedAt:     event.CreatedAt,
-		}
-	}
-
-	response := GetTaskResponse{
-		ID:          task.ID,
-		Title:       task.Title,
-		Description: task.Description,
-		Status:      task.Status,
-		Priority:    task.Priority,
-		DueDate:     task.DueDate,
-		CreatedAt:   task.CreatedAt,
-		UpdatedAt:   task.UpdatedAt,
-		Creator:     UserResponse{ID: creator.ID, Handle: creator.Handle, Email: creator.Email, Status: creator.Status},
-		Events:      events,
-	}
-
-	if assignee != nil {
-		response.Assignee = &UserResponse{ID: assignee.ID, Handle: assignee.Handle, Email: assignee.Email, Status: assignee.Status}
-	}
-
-	h.respondWithJSON(w, http.StatusOK, response)
+	h.respondWithJSON(w, http.StatusOK, StandardResponse{
+		Success: true,
+		Data:    task,
+	})
 }
 
 // @Summary Get all tasks
-// @Description Retrieves all tasks for the current user (created or assigned)
+// @Description Retrieves all tasks for the authenticated user
 // @Tags tasks
 // @Accept json
 // @Produce json
 // @Success 200 {object} GetAllTasksResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /tasks [get]
 func (h *TaskHandler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
-		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
+		h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	tasks, err := h.taskRepository.GetByUserID(userID)
+	tasks, err := h.taskService.GetAllTasks(r.Context(), userID)
 	if err != nil {
-		h.logger.Printf("Failed to get tasks for user %s: %v", userID, err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch tasks", err.Error())
+		h.respondWithError(w, http.StatusInternalServerError, constants.ErrCodeInternal, "Failed to fetch tasks", err.Error())
 		return
 	}
 
-	if len(tasks) == 0 {
-		h.respondWithJSON(w, http.StatusOK, GetAllTasksResponse{
-			Tasks: []GetTaskResponse{},
-		})
-		return
-	}
-
-	response := GetAllTasksResponse{
-		Tasks: make([]GetTaskResponse, len(tasks)),
-	}
-
-	for i, t := range tasks {
-		// Get creator details
-		creator, err := h.userRepository.GetByID(t.CreatorID)
-		if err != nil {
-			h.logger.Printf("Failed to get creator details for task %s: %v", t.ID, err)
-			h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch creator details", err.Error())
-			return
-		}
-
-		// Get assignee details if exists
-		var assignee *commons.User
-		if t.AssigneeID != nil {
-			assigneeUser, err := h.userRepository.GetByID(*t.AssigneeID)
-			if err != nil {
-				h.logger.Printf("Failed to get assignee details for task %s: %v", t.ID, err)
-				h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to fetch assignee details", err.Error())
-				return
-			}
-			assignee = &assigneeUser
-		}
-
-		events := make([]TaskSystemEventResponse, len(t.Events))
-		for j, event := range t.Events {
-			events[j] = TaskSystemEventResponse{
-				ID:            event.ID,
-				TaskId:        event.TaskId,
-				CorrelationId: event.CorrelationId,
-				Origin:        event.Origin,
-				Action:        event.Action,
-				Message:       event.Message,
-				JsonData:      event.JsonData,
-				EmitAt:        event.EmitAt,
-				CreatedAt:     event.CreatedAt,
-			}
-		}
-
-		response.Tasks[i] = GetTaskResponse{
-			ID:          t.ID,
-			Title:       t.Title,
-			Description: t.Description,
-			Status:      t.Status,
-			Priority:    t.Priority,
-			DueDate:     t.DueDate,
-			CreatedAt:   t.CreatedAt,
-			UpdatedAt:   t.UpdatedAt,
-			Creator: UserResponse{
-				ID:     creator.ID,
-				Handle: creator.Handle,
-				Email:  creator.Email,
-				Status: creator.Status,
-			},
-			Events: events,
-		}
-
-		if assignee != nil {
-			response.Tasks[i].Assignee = &UserResponse{
-				ID:     assignee.ID,
-				Handle: assignee.Handle,
-				Email:  assignee.Email,
-				Status: assignee.Status,
-			}
-		}
-	}
-
-	h.respondWithJSON(w, http.StatusOK, response)
+	h.respondWithJSON(w, http.StatusOK, StandardResponse{
+		Success: true,
+		Data:    tasks,
+	})
 }
 
 // @Summary Create a new task
-// @Description Creates a new task in the system
-// @Description
-// @Description Error scenarios:
-// @Description - Missing required fields: Returns 400 with VALIDATION_ERROR code
-// @Description - Invalid assignee ID: Returns 400 with BAD_REQUEST code
-// @Description - Assignee not found: Returns 404 with NOT_FOUND code
-// @Description - Invalid task status: Returns 400 with VALIDATION_ERROR code
+// @Description Creates a new task for the authenticated user
 // @Tags tasks
 // @Accept json
 // @Produce json
-// @Param task body CreateTaskRequest true "Task details"
+// @Param input body CreateTaskRequest true "Task details"
 // @Success 201 {object} CreateTaskResponse
-// @Failure 400 {object} ErrorResponse "Validation errors or invalid input"
-// @Failure 401 {object} ErrorResponse "Missing or invalid authentication token"
+// @Failure 400 {object} ErrorResponse "Invalid request payload"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /tasks [post]
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	var req CreateTaskRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
-		return
-	}
-
-	if validationErrors := req.Validate(); len(validationErrors) > 0 {
-		h.respondWithValidationErrors(w, validationErrors)
+	var input task.CreateTaskInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondWithError(w, http.StatusBadRequest, constants.ErrCodeBadRequest, "Invalid request payload", err.Error())
 		return
 	}
 
 	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
-		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
+		h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	if req.AssigneeID != nil {
-		assignee, err := h.userRepository.GetByID(*req.AssigneeID)
+	input.CreatorID = userID
+
+	task, err := h.taskService.CreateTask(r.Context(), input)
+	if err != nil {
+		h.respondWithError(w, http.StatusInternalServerError, constants.ErrCodeInternal, "Failed to create task", err.Error())
+		return
+	}
+
+	correlationId := uuid.New().String()
+	var wg sync.WaitGroup
+
+  wg.Add(1)
+  go func() {
+    defer wg.Done()
+
+		_, err := h.taskEventService.Create(
+			task.ID,
+			correlationId,
+			"API Gateway",
+      "api:request:received",
+      "Task creation request received",
+			"{}", //marshallJson(params),
+			0,
+		)
+
+    if err != nil {
+      log.Printf("Error creating request event: %v", err)
+    }
+  }()
+
+	wg.Add(1)
+  go func() {
+    defer wg.Done()
+
+		_, err := h.taskEventService.Create(
+			task.ID,
+			correlationId,
+			"API Gateway",
+      "api:db:task-created",
+      "Task created in database",
+			"{}",
+			1,
+		)
+
+    if err != nil {
+      log.Printf("Error creating task created event: %v", err)
+    }
+  }()
+
+	wg.Add(1)
+  go func() {
+    defer wg.Done()
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+		grpcErr := h.grpcService.SendNotification(ctx, commons.GRPCEvent{
+			TaskId:        task.ID,
+			CorrelationId: correlationId,
+			Types:         []string{"IN_APP", "EMAIL"},
+		})
+		if grpcErr != nil {
+			log.Printf("Failed to send notification: %v", grpcErr)
+		}
+
+		_, err := h.taskEventService.Create(
+			task.ID,
+			correlationId,
+			"API Gateway",
+      "api:event:task-created",
+      "Task created event emitted",
+			"{}",
+			2,
+		)
+
 		if err != nil {
-			h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid assignee", "Assignee not found")
-			return
-		}
-		if assignee.Status != "ACTIVE" {
-			h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid assignee", "Assignee is not active")
-			return
-		}
-	}
+      log.Printf("Failed to create task created event: %v", err)
+    }
+  }()
 
-	task := commons.Task{
-		ID:          uuid.New().String(),
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      req.Status,
-		Priority:    req.Priority,
-		DueDate:     req.DueDate,
-		CreatorID:   userID,
-		AssigneeID:  req.AssigneeID,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
+	wg.Wait()
 
-	createdTask, err := h.taskRepository.Create(task)
-	if err != nil {
-		h.logger.Printf("Error creating task: %v", err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to create task", err.Error())
-		return
-	}
-
-	event := createTaskSystemEvent(
-		createdTask.ID,
-		uuid.New().String(),
-		"API",
-		"CREATE",
-		"Task created",
-		h.marshallJson(createdTask),
-	)
-
-	_, err = h.taskSystemEventRepository.Create(event, 1)
-	if err != nil {
-		h.logger.Printf("Error creating task system event: %v", err)
-	}
-
-	if createdTask.AssigneeID != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), notificationTimeout)
-		defer cancel()
-
-		notification := &pb.SendNotificationRequest{
-			TaskId:        createdTask.ID,
-			CorrelationId: uuid.New().String(),
-			Types:         []pb.NotificationType{0},
-		}
-
-		if _, err := h.notificationServiceClient.SendNotification(ctx, notification); err != nil {
-			h.logger.Printf("Error sending notification: %v", err)
-		}
-	}
-
-	h.respondWithJSON(w, http.StatusCreated, CreateTaskResponse{TaskId: createdTask.ID})
+	h.respondWithJSON(w, http.StatusCreated, StandardResponse{
+		Success: true,
+		Data:    task,
+	})
 }
 
 // @Summary Update a task
-// @Description Updates an existing task
-// @Description
-// @Description Error scenarios:
-// @Description - Invalid UUID format: Returns 400 with BAD_REQUEST code
-// @Description - Task not found: Returns 404 with NOT_FOUND code
-// @Description - Invalid status transition: Returns 400 with VALIDATION_ERROR code
-// @Description - Unauthorized modification: Returns 403 with FORBIDDEN code
-// @Description - Invalid assignee: Returns 400 with BAD_REQUEST code
+// @Description Updates an existing task by its ID
 // @Tags tasks
 // @Accept json
 // @Produce json
-// @Param id path string true "Task ID (UUID format)"
-// @Param task body UpdateTaskRequest true "Updated task details"
+// @Param id path string true "Task ID"
+// @Param input body UpdateTaskRequest true "Task update details"
 // @Success 200 {object} UpdateTaskResponse
-// @Failure 400 {object} ErrorResponse "Invalid input or validation errors"
-// @Failure 401 {object} ErrorResponse "Missing or invalid authentication token"
-// @Failure 403 {object} ErrorResponse "Not authorized to update this task"
+// @Failure 400 {object} ErrorResponse "Invalid request payload"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 403 {object} ErrorResponse "Forbidden"
 // @Failure 404 {object} ErrorResponse "Task not found"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /tasks/{id} [put]
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Task ID is required", "Path parameter 'id' is missing")
+	taskID := r.PathValue("id")
+	if taskID == "" {
+		h.respondWithError(w, http.StatusBadRequest, constants.ErrCodeBadRequest, "Task ID is required", "")
 		return
 	}
 
-	if !commons.IsValidUUID(id) {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid task ID format", "Task ID must be a valid UUID")
-		return
-	}
-
-	var req UpdateTaskRequest
-	if err := h.decodeJSON(r, &req); err != nil {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid request body", err.Error())
-		return
-	}
-
-	if validationErrors := req.Validate(); len(validationErrors) > 0 {
-		h.respondWithValidationErrors(w, validationErrors)
+	var input task.UpdateTaskInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.respondWithError(w, http.StatusBadRequest, constants.ErrCodeBadRequest, "Invalid request payload", err.Error())
 		return
 	}
 
 	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
-		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
+		h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	task, err := h.taskRepository.GetByID(id)
+	input.UserID = userID
+
+	task, err := h.taskService.UpdateTask(r.Context(), taskID, input)
 	if err != nil {
-		h.logger.Printf("Error fetching task %s: %v", id, err)
-		h.respondWithError(w, http.StatusNotFound, ErrCodeNotFound, "Task not found", err.Error())
-		return
-	}
-
-	if userID != task.CreatorID && (task.AssigneeID == nil || *task.AssigneeID != userID) {
-		h.respondWithError(w, http.StatusForbidden, ErrCodeForbidden, "Access denied", "You don't have permission to update this task")
-		return
-	}
-
-	now := time.Now()
-	task.Title = req.Title
-	task.Description = req.Description
-	task.Status = req.Status
-	task.Priority = req.Priority
-	task.DueDate = req.DueDate
-	task.AssigneeID = req.AssigneeID
-	task.UpdatedAt = now
-
-	if err := h.taskRepository.Update(task); err != nil {
-		h.logger.Printf("Error updating task %s: %v", id, err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to update task", err.Error())
+		switch err {
+		case commons.ErrNotFound:
+			h.respondWithError(w, http.StatusNotFound, constants.ErrCodeNotFound, "Task not found", "")
+		case commons.ErrUnauthorized:
+			h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
+		default:
+			h.respondWithError(w, http.StatusInternalServerError, constants.ErrCodeInternal, "Failed to update task", err.Error())
+		}
 		return
 	}
 
 	correlationId := uuid.New().String()
-	event := createTaskSystemEvent(
-		id,
+	_, errEvent := h.taskEventService.Create(
+		taskID,
 		correlationId,
-		"API",
-		"UPDATE",
-		"Task updated",
-		h.marshallJson(task),
+		"API Gateway",
+    "api:event:task-updated",
+    "Task updated event emitted",
+    "{}",
+		3,
 	)
-
-	_, err = h.taskSystemEventRepository.Create(event, 1)
-	if err != nil {
-		h.logger.Printf("Error creating task updated event: %v", err)
+	if errEvent != nil {
+		log.Printf("Failed to create task updated event: %v", errEvent)
 	}
 
-	h.respondWithJSON(w, http.StatusOK, UpdateTaskResponse{
-		TaskId: id,
+	h.respondWithJSON(w, http.StatusOK, StandardResponse{
+		Success: true,
+		Data:    task,
 	})
 }
 
 // @Summary Delete a task
-// @Description Deletes a task from the system
-// @Description
-// @Description Error scenarios:
-// @Description - Invalid UUID format: Returns 400 with BAD_REQUEST code
-// @Description - Task not found: Returns 404 with NOT_FOUND code
-// @Description - Unauthorized deletion: Returns 403 with FORBIDDEN code (only creator can delete)
+// @Description Deletes a task by its ID
 // @Tags tasks
 // @Accept json
 // @Produce json
-// @Param id path string true "Task ID (UUID format)"
-// @Success 200 {object} map[string]bool "Success status"
-// @Failure 400 {object} ErrorResponse "Invalid task ID format"
-// @Failure 401 {object} ErrorResponse "Missing or invalid authentication token"
-// @Failure 403 {object} ErrorResponse "Not authorized to delete this task"
+// @Param id path string true "Task ID"
+// @Success 200 "Task deleted successfully"
+// @Failure 400 {object} ErrorResponse "Invalid task ID"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 403 {object} ErrorResponse "Forbidden"
 // @Failure 404 {object} ErrorResponse "Task not found"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /tasks/{id} [delete]
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if id == "" {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Task ID is required", "Path parameter 'id' is missing")
-		return
-	}
-
-	if !commons.IsValidUUID(id) {
-		h.respondWithError(w, http.StatusBadRequest, ErrCodeBadRequest, "Invalid task ID format", "Task ID must be a valid UUID")
+	taskID := r.PathValue("id")
+	if taskID == "" {
+		h.respondWithError(w, http.StatusBadRequest, constants.ErrCodeBadRequest, "Task ID is required", "")
 		return
 	}
 
 	userID := middleware.GetUserIDFromContext(r)
 	if userID == "" {
-		h.respondWithError(w, http.StatusUnauthorized, ErrCodeUnauthorized, "Unauthorized", "User ID not found in context")
+		h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
 		return
 	}
 
-	task, err := h.taskRepository.GetByID(id)
+	err := h.taskService.DeleteTask(r.Context(), taskID, userID)
 	if err != nil {
-		h.logger.Printf("Error fetching task %s: %v", id, err)
-		h.respondWithError(w, http.StatusNotFound, ErrCodeNotFound, "Task not found", err.Error())
-		return
-	}
-
-	if userID != task.CreatorID {
-		h.respondWithError(w, http.StatusForbidden, ErrCodeForbidden, "Access denied", "Only the creator can delete a task")
-		return
-	}
-
-	if err := h.taskRepository.Delete(id); err != nil {
-		h.logger.Printf("Error deleting task %s: %v", id, err)
-		h.respondWithError(w, http.StatusInternalServerError, ErrCodeInternal, "Failed to delete task", err.Error())
+		switch err {
+		case commons.ErrNotFound:
+			h.respondWithError(w, http.StatusNotFound, constants.ErrCodeNotFound, "Task not found", "")
+		case commons.ErrUnauthorized:
+			h.respondWithError(w, http.StatusUnauthorized, constants.ErrCodeUnauthorized, "Unauthorized", "")
+		default:
+			h.respondWithError(w, http.StatusInternalServerError, constants.ErrCodeInternal, "Failed to delete task", err.Error())
+		}
 		return
 	}
 
 	correlationId := uuid.New().String()
-	event := createTaskSystemEvent(
-		id,
+	_, errEvent := h.taskEventService.Create(
+		taskID,
 		correlationId,
-		"API",
-		"DELETE",
-		"Task deleted",
-		h.marshallJson(task),
+		"API Gateway",
+    "api:event:task-deleted",
+    "Task deleted event emitted",
+    "{}",
+		4,
 	)
-
-	_, err = h.taskSystemEventRepository.Create(event, 1)
-	if err != nil {
-		h.logger.Printf("Error creating task deleted event: %v", err)
+	if errEvent != nil {
+		log.Printf("Failed to create task deleted event: %v", errEvent)
 	}
 
-	h.respondWithJSON(w, http.StatusOK, map[string]bool{
-		"success": true,
+	h.respondWithJSON(w, http.StatusOK, StandardResponse{
+		Success: true,
+		Data: map[string]string{
+			"message": "Task deleted successfully",
+		},
 	})
 }

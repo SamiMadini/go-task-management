@@ -33,7 +33,7 @@ export default function TaskDeleteModalPage({ params }: Props) {
       onConfirm={async () => {
         try {
           const resp = await axiosInstance.delete(`/api/v1/tasks/${id}`)
-          if (!resp.data?.data?.success) {
+          if (!resp.data?.success) {
             throw new Error("Failed to delete task")
           }
           toast.success("Task deleted successfully")

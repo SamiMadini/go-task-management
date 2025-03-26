@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Error response model",
+        "description": "Validation error for a specific field",
         "title": "Task Management API",
         "contact": {},
         "version": "1.0"
@@ -11,7 +11,34 @@
     "paths": {
         "/notifications": {
             "get": {
-                "description": "Retrieves all in-app notifications for the current user",
+                "description": "Retrieves all notifications for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Get user notifications",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/in_app_notification.NotificationResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new notification for a user",
                 "consumes": [
                     "application/json"
                 ],
@@ -21,18 +48,35 @@
                 "tags": [
                     "notifications"
                 ],
-                "summary": "Get all in-app notifications",
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                "summary": "Create a notification",
+                "parameters": [
+                    {
+                        "description": "Notification details",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.GetAllInAppNotificationsResponse"
+                            "$ref": "#/definitions/in_app_notification.CreateNotificationInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/in_app_notification.NotificationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -40,17 +84,11 @@
         },
         "/notifications/{id}": {
             "delete": {
-                "description": "Deletes a notification from the system",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Deletes a specific notification",
                 "tags": [
                     "notifications"
                 ],
-                "summary": "Delete a notification",
+                "summary": "Delete notification",
                 "parameters": [
                     {
                         "type": "string",
@@ -61,39 +99,27 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "200": {
+                        "description": "OK"
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "403": {
+                        "description": "Not authorized to delete this notification",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             }
         },
         "/notifications/{id}/read": {
-            "put": {
-                "description": "Updates a notification's read status",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+            "post": {
+                "description": "Marks a specific notification as read",
                 "tags": [
                     "notifications"
                 ],
@@ -109,33 +135,24 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/main.UpdateOnReadResponse"
-                        }
+                        "description": "OK"
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "403": {
+                        "description": "Not authorized to access this notification",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/system-events": {
+        "/task-system-events": {
             "get": {
                 "description": "Retrieves all system events related to tasks",
                 "consumes": [
@@ -152,13 +169,31 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.GetAllTaskSystemEventsResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/handlers.StandardResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handlers.GetAllTaskSystemEventsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -166,7 +201,7 @@
         },
         "/tasks": {
             "get": {
-                "description": "Retrieves all tasks in the system",
+                "description": "Retrieves all tasks for the authenticated user",
                 "consumes": [
                     "application/json"
                 ],
@@ -181,19 +216,25 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.GetAllTasksResponse"
+                            "$ref": "#/definitions/handlers.GetAllTasksResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             },
             "post": {
-                "description": "Creates a new task in the system",
+                "description": "Creates a new task for the authenticated user",
                 "consumes": [
                     "application/json"
                 ],
@@ -207,11 +248,11 @@
                 "parameters": [
                     {
                         "description": "Task details",
-                        "name": "task",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.CreateTaskRequest"
+                            "$ref": "#/definitions/handlers.CreateTaskRequest"
                         }
                     }
                 ],
@@ -219,19 +260,25 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/main.CreateTaskResponse"
+                            "$ref": "#/definitions/handlers.CreateTaskResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request payload",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -263,31 +310,37 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.GetTaskResponse"
+                            "$ref": "#/definitions/handlers.GetTaskResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid task ID",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Task not found",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             },
             "put": {
-                "description": "Updates an existing task",
+                "description": "Updates an existing task by its ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -307,12 +360,12 @@
                         "required": true
                     },
                     {
-                        "description": "Updated task details",
-                        "name": "task",
+                        "description": "Task update details",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.UpdateTaskRequest"
+                            "$ref": "#/definitions/handlers.UpdateTaskRequest"
                         }
                     }
                 ],
@@ -320,31 +373,43 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.UpdateTaskResponse"
+                            "$ref": "#/definitions/handlers.UpdateTaskResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request payload",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Task not found",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
             },
             "delete": {
-                "description": "Deletes a task from the system",
+                "description": "Deletes a task by its ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -365,25 +430,37 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "200": {
+                        "description": "Task deleted successfully"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid task ID",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Task not found",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/handlers.ErrorResponse"
                         }
                     }
                 }
@@ -391,45 +468,47 @@
         }
     },
     "definitions": {
-        "main.CreateTaskRequest": {
+        "auth.UserResponse": {
             "type": "object",
-            "required": [
-                "priority",
-                "status",
-                "title"
-            ],
             "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "handle": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
                 "description": {
-                    "type": "string",
-                    "maxLength": 500
+                    "type": "string"
                 },
                 "due_date": {
                     "type": "string"
                 },
                 "priority": {
-                    "type": "integer",
-                    "enum": [
-                        1,
-                        2,
-                        3
-                    ]
+                    "type": "integer"
                 },
                 "status": {
-                    "type": "string",
-                    "enum": [
-                        "todo",
-                        "in_progress",
-                        "done"
-                    ]
+                    "type": "string"
                 },
                 "title": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 3
+                    "type": "string"
                 }
             }
         },
-        "main.CreateTaskResponse": {
+        "handlers.CreateTaskResponse": {
             "type": "object",
             "properties": {
                 "task_id": {
@@ -437,54 +516,67 @@
                 }
             }
         },
-        "main.ErrorResponse": {
-            "description": "Error response model",
+        "handlers.ErrorInfo": {
             "type": "object",
             "properties": {
-                "error": {
-                    "type": "string",
-                    "example": "Invalid task ID format"
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
-        "main.GetAllInAppNotificationsResponse": {
+        "handlers.ErrorResponse": {
             "type": "object",
             "properties": {
-                "in_app_notifications": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/main.InAppNotificationResponse"
-                    }
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
-        "main.GetAllTaskSystemEventsResponse": {
+        "handlers.GetAllTaskSystemEventsResponse": {
             "type": "object",
             "properties": {
                 "events": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/main.TaskSystemEventResponse"
+                        "$ref": "#/definitions/handlers.TaskSystemEventResponse"
                     }
                 }
             }
         },
-        "main.GetAllTasksResponse": {
+        "handlers.GetAllTasksResponse": {
             "type": "object",
             "properties": {
                 "tasks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/main.GetTaskResponse"
+                        "$ref": "#/definitions/handlers.GetTaskResponse"
                     }
                 }
             }
         },
-        "main.GetTaskResponse": {
+        "handlers.GetTaskResponse": {
             "type": "object",
             "properties": {
+                "assignee": {
+                    "$ref": "#/definitions/auth.UserResponse"
+                },
                 "created_at": {
                     "type": "string"
+                },
+                "creator": {
+                    "$ref": "#/definitions/auth.UserResponse"
                 },
                 "description": {
                     "type": "string"
@@ -495,7 +587,7 @@
                 "events": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/main.TaskSystemEventResponse"
+                        "$ref": "#/definitions/handlers.TaskSystemEventResponse"
                     }
                 },
                 "id": {
@@ -515,33 +607,39 @@
                 }
             }
         },
-        "main.InAppNotificationResponse": {
+        "handlers.MetaInfo": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
+                "page": {
+                    "type": "integer"
                 },
-                "description": {
-                    "type": "string"
+                "per_page": {
+                    "type": "integer"
                 },
-                "id": {
-                    "type": "string"
+                "total": {
+                    "type": "integer"
                 },
-                "is_read": {
-                    "type": "boolean"
-                },
-                "read_at": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         },
-        "main.TaskSystemEventResponse": {
+        "handlers.StandardResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error": {
+                    "$ref": "#/definitions/handlers.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/handlers.MetaInfo"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handlers.TaskSystemEventResponse": {
             "type": "object",
             "properties": {
                 "action": {
@@ -573,51 +671,73 @@
                 }
             }
         },
-        "main.UpdateOnReadResponse": {
+        "handlers.UpdateTaskRequest": {
             "type": "object",
             "properties": {
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "main.UpdateTaskRequest": {
-            "type": "object",
-            "properties": {
+                "assignee_id": {
+                    "type": "string"
+                },
                 "description": {
-                    "type": "string",
-                    "maxLength": 500
+                    "type": "string"
                 },
                 "due_date": {
                     "type": "string"
                 },
                 "priority": {
-                    "type": "integer",
-                    "enum": [
-                        1,
-                        2,
-                        3
-                    ]
+                    "type": "integer"
                 },
                 "status": {
-                    "type": "string",
-                    "enum": [
-                        "todo",
-                        "in_progress",
-                        "done"
-                    ]
+                    "type": "string"
                 },
                 "title": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 3
+                    "type": "string"
                 }
             }
         },
-        "main.UpdateTaskResponse": {
+        "handlers.UpdateTaskResponse": {
             "type": "object",
             "properties": {
                 "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "in_app_notification.CreateNotificationInput": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "in_app_notification.NotificationResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_read": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }

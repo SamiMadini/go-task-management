@@ -1,109 +1,95 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
-	"runtime/debug"
 
 	commons "sama/go-task-management/commons"
-	pb "sama/go-task-management/commons/api"
 	"sama/go-task-management/gateway/config"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"sama/go-task-management/gateway/handlers/constants"
+	"sama/go-task-management/gateway/handlers/validation"
+	"sama/go-task-management/gateway/services/auth"
+	"sama/go-task-management/gateway/services/grpc"
+	in_app_notification "sama/go-task-management/gateway/services/in_app_notification"
+	"sama/go-task-management/gateway/services/task"
+	"sama/go-task-management/gateway/services/task_system_event"
 )
 
 type BaseHandler struct {
-	userRepository              commons.UserRepositoryInterface
-	taskRepository              commons.TaskRepositoryInterface
-	taskSystemEventRepository   commons.TaskSystemEventRepositoryInterface
-	inAppNotificationRepository commons.InAppNotificationRepositoryInterface
-	notificationServiceClient   pb.NotificationServiceClient
-	passwordResetTokenRepository commons.PasswordResetTokenRepositoryInterface
-	jwtSecret                  string
-	logger                     *log.Logger
+	config              *Config
+	jwtSecret           string
+	logger              commons.Logger
+	grpcService         *grpc.Service
+	authService         *auth.Service
+	taskService         *task.Service
+	taskEventService    *task_system_event.Service
+	inAppNotificationService *in_app_notification.Service
 }
 
-func NewBaseHandler(cfg *config.Config) (*BaseHandler, error) {
-	ctx := context.Background()
-	conn, err := grpc.DialContext(
-		ctx,
-		cfg.NotificationServiceAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, err
-	}
+type Config struct {
+	JWTSecret string
+}
 
-	database, err := commons.InitDB()
-	if err != nil {
-		return nil, err
-	}
-
-	logger := log.New(os.Stdout, "[API] ", log.LstdFlags|log.Lshortfile)
-
+func NewBaseHandler(
+	cfg *config.Config,
+	logger commons.Logger,
+	config *Config,
+	authService *auth.Service,
+	taskService *task.Service,
+	taskEventService *task_system_event.Service,
+	inAppNotificationService *in_app_notification.Service,
+	grpcService *grpc.Service,
+) (*BaseHandler, error) {
 	return &BaseHandler{
-		userRepository:              commons.NewPostgresUserRepository(database),
-		taskRepository:              commons.NewPostgresTaskRepository(database),
-		taskSystemEventRepository:   commons.NewPostgresTaskSystemEventRepository(database),
-		inAppNotificationRepository: commons.NewPostgresInAppNotificationRepository(database),
-		notificationServiceClient:   pb.NewNotificationServiceClient(conn),
-		passwordResetTokenRepository: commons.NewPostgresPasswordResetTokenRepository(database),
-		jwtSecret:                  os.Getenv("JWT_SECRET"),
-		logger:                     logger,
+		config:              config,
+		jwtSecret:           os.Getenv("JWT_SECRET"),
+		logger:              logger,
+		grpcService:         grpcService,
+		authService:         authService,
+		taskService:         taskService,
+		taskEventService:    taskEventService,
+		inAppNotificationService: inAppNotificationService,
 	}, nil
 }
 
-func (h *BaseHandler) decodeJSON(r *http.Request, v interface{}) error {
-	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ErrorResponse represents a standardized error response
 type ErrorResponse struct {
-	Code       string `json:"code"`
-	Message    string `json:"message"`
-	Details    string `json:"details,omitempty"`
-	ValidationErrors []ValidationError `json:"validation_errors,omitempty"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Details string `json:"details,omitempty"`
 }
 
-func (h *BaseHandler) respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
-	response := StandardResponse{
-		Success: code >= 200 && code < 300,
-		Data:    payload,
-	}
-
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		h.logger.Printf("Error marshaling response: %v\nStack trace:\n%s", err, debug.Stack())
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
+func (h *BaseHandler) respondWithJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(jsonResponse)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		h.logger.Printf("Error encoding response: %v", err)
+	}
 }
 
 func (h *BaseHandler) respondWithError(w http.ResponseWriter, status int, code string, message string, details string) {
-	h.respondWithJSON(w, status, ErrorResponse{
-		Code:    code,
-		Message: message,
-		Details: details,
-	})
+	response := StandardResponse{
+		Success: false,
+		Error: &ErrorInfo{
+			Code:    code,
+			Message: message,
+			Details: details,
+		},
+	}
+	h.respondWithJSON(w, status, response)
 }
 
-func (h *BaseHandler) respondWithValidationErrors(w http.ResponseWriter, errors []ValidationError) {
-	h.respondWithJSON(w, http.StatusBadRequest, ErrorResponse{
-		Code:             ErrCodeValidation,
-		Message:          "Validation failed",
-		ValidationErrors: errors,
-	})
+func (h *BaseHandler) respondWithValidationErrors(w http.ResponseWriter, errors []validation.ValidationError) {
+	response := StandardResponse{
+		Success: false,
+		Error: &ErrorInfo{
+			Code:    constants.ErrCodeValidation,
+			Message: "Validation failed",
+			Details: "One or more fields failed validation",
+		},
+		Data: errors,
+	}
+	h.respondWithJSON(w, http.StatusBadRequest, response)
 }
 
 func (h *BaseHandler) Health(w http.ResponseWriter, r *http.Request) {

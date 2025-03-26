@@ -7,19 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// @Description TaskSystemEvent model
-type TaskSystemEvent struct {
-	ID            string    `json:"id"`
-	TaskId        string    `json:"task_id"`
-	CorrelationId string    `json:"correlation_id"`
-	Origin        string    `json:"origin"`
-	Action        string    `json:"action"`
-	Message       string    `json:"message"`
-	JsonData      string    `json:"json_data"`
-	EmitAt        time.Time `json:"emit_at"`
-	CreatedAt     time.Time `json:"created_at"`
-}
-
 type TaskSystemEventRepositoryInterface interface {
 	GetAll() ([]TaskSystemEvent, error)
 	Create(systemEvent TaskSystemEvent, delay int) (TaskSystemEvent, error)
@@ -45,55 +32,58 @@ func (r *PostgresTaskSystemEventRepository) GetAll() ([]TaskSystemEvent, error) 
 
 	var taskSystemEvents []TaskSystemEvent
 	for rows.Next() {
-		var taskSystemEvent TaskSystemEvent
+		var dbEvent DBTaskSystemEvent
 		
 		err := rows.Scan(
-			&taskSystemEvent.ID,
-			&taskSystemEvent.TaskId,
-			&taskSystemEvent.CorrelationId,
-			&taskSystemEvent.Origin,
-			&taskSystemEvent.Action,
-			&taskSystemEvent.Message,
-			&taskSystemEvent.JsonData,
-			&taskSystemEvent.EmitAt,
-			&taskSystemEvent.CreatedAt,
+			&dbEvent.ID,
+			&dbEvent.TaskId,
+			&dbEvent.CorrelationId,
+			&dbEvent.Origin,
+			&dbEvent.Action,
+			&dbEvent.Message,
+			&dbEvent.JsonData,
+			&dbEvent.EmitAt,
+			&dbEvent.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		
-		taskSystemEvents = append(taskSystemEvents, taskSystemEvent)
+		taskSystemEvents = append(taskSystemEvents, dbEvent.ToTaskSystemEvent())
 	}
 
 	return taskSystemEvents, nil
 }
 
 func (r *PostgresTaskSystemEventRepository) Create(taskSystemEvent TaskSystemEvent, delay int) (TaskSystemEvent, error) {
-	if taskSystemEvent.ID == "" {
-		taskSystemEvent.ID = uuid.New().String()
+	dbEvent := &DBTaskSystemEvent{}
+	dbEvent.FromTaskSystemEvent(taskSystemEvent)
+
+	if dbEvent.ID == "" {
+		dbEvent.ID = uuid.New().String()
 	}
 
-	taskSystemEvent.EmitAt = time.Now().Add(time.Duration(delay) * time.Second)
-	taskSystemEvent.CreatedAt = time.Now()
+	dbEvent.EmitAt = time.Now().Add(time.Duration(delay) * time.Second)
+	dbEvent.CreatedAt = time.Now()
 
 	_, err := r.DB.Exec(`
 		INSERT INTO task_system_events (id, task_id, correlation_id, origin, action, message, json_data, emit_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`,
-		taskSystemEvent.ID,
-		taskSystemEvent.TaskId,
-		taskSystemEvent.CorrelationId,
-		taskSystemEvent.Origin,
-		taskSystemEvent.Action,
-		taskSystemEvent.Message,
-		taskSystemEvent.JsonData,
-		taskSystemEvent.EmitAt,
-		taskSystemEvent.CreatedAt,
+		dbEvent.ID,
+		dbEvent.TaskId,
+		dbEvent.CorrelationId,
+		dbEvent.Origin,
+		dbEvent.Action,
+		dbEvent.Message,
+		dbEvent.JsonData,
+		dbEvent.EmitAt,
+		dbEvent.CreatedAt,
 	)
 
 	if err != nil {
 		return TaskSystemEvent{}, err
 	}
 	
-	return taskSystemEvent, nil
+	return dbEvent.ToTaskSystemEvent(), nil
 }

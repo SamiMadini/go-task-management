@@ -157,7 +157,7 @@ export async function resetPassword(credentials: ResetPasswordCredentials): Prom
 
 export async function refreshToken(token: string): Promise<{ accessToken: string }> {
   try {
-    const response = await axiosInstance.post<{ data: AuthResponse["data"]["token"] }>("/api/v1/auth/refresh-token", {
+    const response = await axiosInstance.post<{ data: AuthResponse["data"]["token"] }>("/api/v1/auth/refresh", {
       refresh_token: token,
     })
 

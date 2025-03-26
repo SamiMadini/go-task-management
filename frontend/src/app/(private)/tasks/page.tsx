@@ -9,9 +9,7 @@ import { useAuth } from "@/lib/hooks"
 import { store } from "@/lib/store"
 
 interface TasksResponse {
-  data: {
-    tasks: GetOneTaskInterface[]
-  }
+  data: GetOneTaskInterface[]
 }
 
 export default function TasksPage() {
@@ -43,10 +41,10 @@ export default function TasksPage() {
       try {
         console.log("Fetching tasks with token:", accessToken?.substring(0, 10) + "...")
         const res = await axiosInstance.get<TasksResponse>("/api/v1/tasks")
-        if (!res.data?.data?.tasks) {
+        if (!res.data?.data) {
           throw new Error("Failed to fetch data")
         }
-        setTasks(res.data.data.tasks)
+        setTasks(res.data.data)
       } catch (error: any) {
         console.error("Error fetching tasks:", error)
         if (error.response?.status === 401) {

@@ -16,19 +16,28 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
+
+	"sama/go-task-management/commons"
 	"sama/go-task-management/gateway/config"
 	"sama/go-task-management/gateway/handlers"
 	"sama/go-task-management/gateway/middleware"
 	"sama/go-task-management/gateway/routes"
+	"sama/go-task-management/gateway/services"
 
 	_ "sama/go-task-management/gateway/docs"
+
+	pb "sama/go-task-management/commons/api"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ErrorResponse represents a standardized error response
@@ -55,43 +64,109 @@ type ValidationError struct {
 }
 
 func main() {
+	// Initialize logger
+	logger := commons.NewLogger("[API] ")
+
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		logger.Error("Warning: Error loading .env file:", err)
+	}
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		logger.Error("Failed to load configuration:", err)
+		os.Exit(1)
 	}
 
-	// Create router
-	router := routes.NewRouter()
-
-	// Create handler instance
-	handler, err := handlers.NewHandler(cfg)
+	// Initialize database
+	db, err := commons.InitDB()
 	if err != nil {
-		log.Fatalf("Failed to create handler: %v", err)
+		logger.Error("Failed to initialize database:", err)
+		os.Exit(1)
 	}
 
-	// Register routes
-	router.RegisterRoutes(handler, middleware.DefaultCorsConfig(), middleware.DefaultAuthConfig(cfg.JWTSecret))
+	// Initialize repositories
+	userRepo := commons.NewPostgresUserRepository(db)
+	taskRepo := commons.NewPostgresTaskRepository(db)
+	taskSystemEventRepo := commons.NewPostgresTaskSystemEventRepository(db)
+	inAppNotificationRepo := commons.NewPostgresInAppNotificationRepository(db)
+	passwordResetTokenRepo := commons.NewPostgresPasswordResetTokenRepository(db)
 
-	// Create middleware chain
-	chain := middleware.NewChain(
-		middleware.RecoveryMiddleware,
-		middleware.LoggingMiddleware,
-		middleware.CorsMiddleware(middleware.DefaultCorsConfig()),
-		middleware.AuthMiddleware(middleware.DefaultAuthConfig(cfg.JWTSecret)),
+	// Initialize GRPC service client
+	ctx := context.Background()
+	conn, err := grpc.DialContext(
+		ctx,
+		cfg.NotificationServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		logger.Error("Failed to initialize notification service:", err)
+		// os.Exit(1)
+	}
+	notificationServiceClient := pb.NewNotificationServiceClient(conn)
+
+	// Initialize services
+	services := services.NewServices(
+		logger,
+		os.Getenv("JWT_SECRET"),
+		userRepo,
+		taskRepo,
+		taskSystemEventRepo,
+		inAppNotificationRepo,
+		passwordResetTokenRepo,
+		notificationServiceClient,
 	)
 
-	// Create server with middleware chain
-	srv := &http.Server{
-		Addr:    fmt.Sprintf("0.0.0.0:%d", cfg.Port),
-		Handler: chain.Then(router.GetMux()),
+	// Initialize handlers
+	h, err := handlers.NewHandlers(logger, services)
+	if err != nil {
+		logger.Error("Failed to initialize handlers:", err)
+		os.Exit(1)
 	}
 
-	// Start server in a goroutine
+	// Create handler wrapper
+	handlerWrapper := handlers.NewHandlerWrapper(
+		h.Base,
+		h.Auth,
+		h.Task,
+		h.InAppNotification,
+		h.TaskSystemEvent,
+	)
+
+	// Initialize router
+	router := routes.NewRouter()
+
+	// Create base middleware chain
+	baseChain := middleware.NewChain(
+		middleware.CorsMiddleware(middleware.DefaultCorsConfig()),
+		chiMiddleware.Logger,
+		chiMiddleware.Recoverer,
+		chiMiddleware.RequestID,
+		chiMiddleware.RealIP,
+		chiMiddleware.Timeout(60*time.Second),
+	)
+
+	// Get Chi router and apply base middleware
+	r := router.GetRouter()
+	r.Use(baseChain.Then)
+
+	// Register routes
+	authConfig := middleware.DefaultAuthConfig(os.Getenv("JWT_SECRET"))
+	router.RegisterRoutes(handlerWrapper, authConfig)
+
+	// Start server
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: r,
+	}
+
+	// Graceful shutdown
 	go func() {
-		log.Printf("Starting server on port %d", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+		logger.Infof("Server started on port %d", cfg.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Failed to start server:", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -100,14 +175,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	// Graceful shutdown
-	log.Println("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	logger.Info("Shutting down server...")
+
+	// Shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Error("Server forced to shutdown:", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server exited properly")
+	logger.Info("Server exited properly")
 }

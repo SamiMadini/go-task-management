@@ -11,9 +11,7 @@ import { NotificationsTabsComponent } from "@/app/_components/notifications/noti
 import { toast } from "sonner"
 
 interface NotificationsResponse {
-  data: {
-    in_app_notifications: GetOneNotificationInterface[]
-  }
+  data: GetOneNotificationInterface[]
 }
 
 export function NotificationsComponent() {
@@ -35,8 +33,8 @@ export function NotificationsComponent() {
     const fetchNotifications = async () => {
       try {
         const response = await axiosInstance.get<NotificationsResponse>("/api/v1/notifications")
-        if (response.data?.data?.in_app_notifications) {
-          setNotifications(response.data.data.in_app_notifications)
+        if (response.data?.data) {
+          setNotifications(response.data.data)
         }
       } catch (error) {
         handleError(error, "fetching notifications")
@@ -52,11 +50,11 @@ export function NotificationsComponent() {
 
   const handleReadNotification = async (notificationId: number, isRead: boolean) => {
     try {
-      const response = await axiosInstance.post<{ data: { success: boolean } }>(`/api/v1/notifications/${notificationId}/read`, {
+      const response = await axiosInstance.post<{ success: boolean }>(`/api/v1/notifications/${notificationId}/read`, {
         is_read: isRead,
       })
 
-      if (!response.data?.data?.success) {
+      if (!response.data?.success) {
         throw new Error("Failed to update notification")
       }
 
@@ -79,9 +77,9 @@ export function NotificationsComponent() {
 
   const handleDeleteNotification = async (notificationId: number) => {
     try {
-      const response = await axiosInstance.delete<{ data: { success: boolean } }>(`/api/v1/notifications/${notificationId}`)
+      const response = await axiosInstance.delete<{ success: boolean }>(`/api/v1/notifications/${notificationId}`)
 
-      if (!response.data?.data?.success) {
+      if (!response.data?.success) {
         throw new Error("Failed to delete notification")
       }
 

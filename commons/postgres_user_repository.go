@@ -6,18 +6,6 @@ import (
 	"time"
 )
 
-// @Description User model
-type User struct {
-	ID           string     `json:"id"`
-	Handle       string     `json:"handle"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	Salt         string     `json:"-"`
-	Status       string     `json:"status"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-}
-
 type UserRepositoryInterface interface {
 	Create(user User) (User, error)
 	GetByID(id string) (User, error)
@@ -37,45 +25,50 @@ func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
 func (r *PostgresUserRepository) Create(user User) (User, error) {
 	log.Printf("Creating user with handle: %s", user.Handle)
 
+	dbUser := &DBUser{}
+	dbUser.FromUser(user)
+	dbUser.CreatedAt = time.Now()
+	dbUser.UpdatedAt = time.Now()
+
 	_, err := r.DB.Exec(`
 		INSERT INTO users (id, handle, email, password_hash, salt, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`,
-		user.ID,
-		user.Handle,
-		user.Email,
-		user.PasswordHash,
-		user.Salt,
-		user.Status,
-		user.CreatedAt,
-		user.UpdatedAt,
+		dbUser.ID,
+		dbUser.Handle,
+		dbUser.Email,
+		dbUser.HashedPassword,
+		dbUser.Salt,
+		dbUser.Status,
+		dbUser.CreatedAt,
+		dbUser.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Error creating user: %v", err)
 		return User{}, err
 	}
 
-	log.Printf("User created successfully with ID: %s", user.ID)
-	return user, nil
+	log.Printf("User created successfully with ID: %s", dbUser.ID)
+	return dbUser.ToUser(), nil
 }
 
 func (r *PostgresUserRepository) GetByID(id string) (User, error) {
 	log.Printf("Getting user by ID: %s", id)
 
-	var user User
+	var dbUser DBUser
 	err := r.DB.QueryRow(`
 		SELECT id, handle, email, password_hash, salt, status, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
-		&user.ID,
-		&user.Handle,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Salt,
-		&user.Status,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&dbUser.ID,
+		&dbUser.Handle,
+		&dbUser.Email,
+		&dbUser.HashedPassword,
+		&dbUser.Salt,
+		&dbUser.Status,
+		&dbUser.CreatedAt,
+		&dbUser.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		log.Printf("User not found with ID: %s", id)
@@ -87,26 +80,26 @@ func (r *PostgresUserRepository) GetByID(id string) (User, error) {
 	}
 
 	log.Printf("User retrieved successfully with ID: %s", id)
-	return user, nil
+	return dbUser.ToUser(), nil
 }
 
 func (r *PostgresUserRepository) GetByEmail(email string) (User, error) {
 	log.Printf("Getting user by email: %s", email)
 
-	var user User
+	var dbUser DBUser
 	err := r.DB.QueryRow(`
 		SELECT id, handle, email, password_hash, salt, status, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`, email).Scan(
-		&user.ID,
-		&user.Handle,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Salt,
-		&user.Status,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&dbUser.ID,
+		&dbUser.Handle,
+		&dbUser.Email,
+		&dbUser.HashedPassword,
+		&dbUser.Salt,
+		&dbUser.Status,
+		&dbUser.CreatedAt,
+		&dbUser.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		log.Printf("User not found with email: %s", email)
@@ -118,26 +111,26 @@ func (r *PostgresUserRepository) GetByEmail(email string) (User, error) {
 	}
 
 	log.Printf("User retrieved successfully with email: %s", email)
-	return user, nil
+	return dbUser.ToUser(), nil
 }
 
 func (r *PostgresUserRepository) GetByHandle(handle string) (User, error) {
 	log.Printf("Getting user by handle: %s", handle)
 
-	var user User
+	var dbUser DBUser
 	err := r.DB.QueryRow(`
 		SELECT id, handle, email, password_hash, salt, status, created_at, updated_at
 		FROM users
 		WHERE handle = $1
 	`, handle).Scan(
-		&user.ID,
-		&user.Handle,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Salt,
-		&user.Status,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&dbUser.ID,
+		&dbUser.Handle,
+		&dbUser.Email,
+		&dbUser.HashedPassword,
+		&dbUser.Salt,
+		&dbUser.Status,
+		&dbUser.CreatedAt,
+		&dbUser.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		log.Printf("User not found with handle: %s", handle)
@@ -149,30 +142,30 @@ func (r *PostgresUserRepository) GetByHandle(handle string) (User, error) {
 	}
 
 	log.Printf("User retrieved successfully with handle: %s", handle)
-	return user, nil
+	return dbUser.ToUser(), nil
 }
 
 func (r *PostgresUserRepository) UpdatePassword(id string, hashedPassword string, salt string) (User, error) {
-	var user User
+	var dbUser DBUser
 	query := `
 		UPDATE users 
-		SET password = $1, salt = $2, updated_at = NOW()
+		SET password_hash = $1, salt = $2, updated_at = NOW()
 		WHERE id = $3
-		RETURNING id, email, handle, password, salt, status, created_at, updated_at
+		RETURNING id, handle, email, password_hash, salt, status, created_at, updated_at
 	`
 	err := r.DB.QueryRow(query, hashedPassword, salt, id).Scan(
-		&user.ID,
-		&user.Email,
-		&user.Handle,
-		&user.PasswordHash,
-		&user.Salt,
-		&user.Status,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&dbUser.ID,
+		&dbUser.Handle,
+		&dbUser.Email,
+		&dbUser.HashedPassword,
+		&dbUser.Salt,
+		&dbUser.Status,
+		&dbUser.CreatedAt,
+		&dbUser.UpdatedAt,
 	)
 	if err != nil {
 		log.Printf("Error updating user password: %v", err)
 		return User{}, err
 	}
-	return user, nil
+	return dbUser.ToUser(), nil
 }

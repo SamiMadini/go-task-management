@@ -7,25 +7,6 @@ import (
 	"time"
 )
 
-// @Description Task model
-type Task struct {
-	ID          string            `json:"id"`
-	CreatorID   string            `json:"creator_id"`
-	AssigneeID  *string           `json:"assignee_id,omitempty"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Status      string            `json:"status"` // "todo", "in-progress", "done"
-	Priority    int               `json:"priority"`
-	EmailSent   bool              `json:"email_sent"`
-	InAppSent   bool              `json:"in_app_sent"`
-	DueDate     time.Time         `json:"due_date"`
-	Deleted     bool              `json:"deleted"`
-	DeletedAt   *time.Time        `json:"deleted_at,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-	Events      []TaskSystemEvent `json:"events"`
-}
-
 type TaskRepositoryInterface interface {
 	GetAll() ([]Task, error)
 	GetByID(id string) (Task, error)
@@ -47,7 +28,6 @@ func NewPostgresTaskRepository(db *sql.DB) *PostgresTaskRepository {
 func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 	log.Println("Getting all tasks with related events")
 
-	// Single query with LEFT JOIN to get tasks with their events
 	rows, err := r.DB.Query(`
 		SELECT 
 			t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority,
@@ -55,8 +35,8 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 			e.id, e.task_id, e.correlation_id, e.origin, e.action,
 			e.message, e.json_data, e.emit_at, e.created_at
 		FROM tasks t
-		WHERE t.deleted = false
 		LEFT JOIN task_system_events e ON t.id = e.task_id
+		WHERE t.deleted = false
 		ORDER BY t.created_at DESC, e.created_at DESC
 	`)
 	if err != nil {
@@ -65,33 +45,32 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 	}
 	defer rows.Close()
 
-	tasksMap := make(map[string]*Task)
+	tasksMap := make(map[string]*DBTask)
 	var tasks []Task
 
 	for rows.Next() {
-		var task Task
+		var dbTask DBTask
 		var dueDate sql.NullTime
 		var assigneeID sql.NullString
 
-		// For event fields - all are nullable because of LEFT JOIN
 		var eventID, eventTaskId, eventCorrelationId, eventOrigin, eventAction, eventMessage, eventJsonData sql.NullString
 		var eventEmitAt, eventCreatedAt sql.NullTime
 
 		err := rows.Scan(
-			&task.ID,
-			&task.CreatorID,
+			&dbTask.ID,
+			&dbTask.CreatorID,
 			&assigneeID,
-			&task.Title,
-			&task.Description,
-			&task.Status,
-			&task.Priority,
-			&task.EmailSent,
-			&task.InAppSent,
+			&dbTask.Title,
+			&dbTask.Description,
+			&dbTask.Status,
+			&dbTask.Priority,
+			&dbTask.EmailSent,
+			&dbTask.InAppSent,
 			&dueDate,
-			&task.CreatedAt,
-			&task.UpdatedAt,
-			&task.Deleted,
-			&task.DeletedAt,
+			&dbTask.CreatedAt,
+			&dbTask.UpdatedAt,
+			&dbTask.Deleted,
+			&dbTask.DeletedAt,
 			&eventID,
 			&eventTaskId,
 			&eventCorrelationId,
@@ -108,23 +87,22 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 		}
 
 		if dueDate.Valid {
-			task.DueDate = dueDate.Time
+			dbTask.DueDate = dueDate.Time
 		}
 
 		if assigneeID.Valid {
-			task.AssigneeID = &assigneeID.String
+			dbTask.AssigneeID = &assigneeID.String
 		}
 
-		existingTask, exists := tasksMap[task.ID]
+		existingTask, exists := tasksMap[dbTask.ID]
 		if !exists {
-			task.Events = []TaskSystemEvent{}
-			tasks = append(tasks, task)
-			tasksMap[task.ID] = &tasks[len(tasks)-1]
-			existingTask = &tasks[len(tasks)-1]
+			dbTask.Events = []TaskSystemEvent{}
+			tasksMap[dbTask.ID] = &dbTask
+			existingTask = &dbTask
 		}
 
 		if eventID.Valid {
-			event := TaskSystemEvent{
+			dbEvent := DBTaskSystemEvent{
 				ID:            eventID.String,
 				TaskId:        eventTaskId.String,
 				CorrelationId: eventCorrelationId.String,
@@ -135,13 +113,18 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 				EmitAt:        eventEmitAt.Time,
 				CreatedAt:     eventCreatedAt.Time,
 			}
-			existingTask.Events = append(existingTask.Events, event)
+			existingTask.Events = append(existingTask.Events, dbEvent.ToTaskSystemEvent())
 		}
 	}
 
 	if err = rows.Err(); err != nil {
 		log.Printf("Error iterating over rows: %v", err)
 		return nil, err
+	}
+
+	// Convert DB tasks to domain tasks
+	for _, dbTask := range tasksMap {
+		tasks = append(tasks, dbTask.ToTask())
 	}
 
 	log.Println("Tasks with events retrieved successfully")
@@ -151,7 +134,6 @@ func (r *PostgresTaskRepository) GetAll() ([]Task, error) {
 func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 	log.Println("Getting task with related events by ID:", id)
 
-	// Single query with LEFT JOIN to get task with events
 	rows, err := r.DB.Query(`
 		SELECT 
 			t.id, t.creator_id, t.assignee_id, t.title, t.description, t.status, t.priority,
@@ -169,7 +151,7 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 	}
 	defer rows.Close()
 
-	var task Task
+	var dbTask DBTask
 	found := false
 
 	for rows.Next() {
@@ -180,20 +162,20 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 		var eventEmitAt, eventCreatedAt sql.NullTime
 
 		err := rows.Scan(
-			&task.ID,
-			&task.CreatorID,
+			&dbTask.ID,
+			&dbTask.CreatorID,
 			&assigneeID,
-			&task.Title,
-			&task.Description,
-			&task.Status,
-			&task.Priority,
-			&task.EmailSent,
-			&task.InAppSent,
+			&dbTask.Title,
+			&dbTask.Description,
+			&dbTask.Status,
+			&dbTask.Priority,
+			&dbTask.EmailSent,
+			&dbTask.InAppSent,
 			&dueDate,
-			&task.CreatedAt,
-			&task.UpdatedAt,
-			&task.Deleted,
-			&task.DeletedAt,
+			&dbTask.CreatedAt,
+			&dbTask.UpdatedAt,
+			&dbTask.Deleted,
+			&dbTask.DeletedAt,
 			&eventID,
 			&eventTaskID,
 			&eventCorrelationID,
@@ -210,20 +192,20 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 		}
 
 		if dueDate.Valid {
-			task.DueDate = dueDate.Time
+			dbTask.DueDate = dueDate.Time
 		}
 
 		if assigneeID.Valid {
-			task.AssigneeID = &assigneeID.String
+			dbTask.AssigneeID = &assigneeID.String
 		}
 
 		if !found {
-			task.Events = []TaskSystemEvent{}
+			dbTask.Events = []TaskSystemEvent{}
 			found = true
 		}
 
 		if eventID.Valid && eventTaskID.Valid {
-			event := TaskSystemEvent{
+			dbEvent := DBTaskSystemEvent{
 				ID:            eventID.String,
 				TaskId:        eventTaskID.String,
 				CorrelationId: eventCorrelationID.String,
@@ -234,14 +216,14 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 			}
 
 			if eventEmitAt.Valid {
-				event.EmitAt = eventEmitAt.Time
+				dbEvent.EmitAt = eventEmitAt.Time
 			}
 
 			if eventCreatedAt.Valid {
-				event.CreatedAt = eventCreatedAt.Time
+				dbEvent.CreatedAt = eventCreatedAt.Time
 			}
 
-			task.Events = append(task.Events, event)
+			dbTask.Events = append(dbTask.Events, dbEvent.ToTaskSystemEvent())
 		}
 	}
 
@@ -255,7 +237,7 @@ func (r *PostgresTaskRepository) GetByID(id string) (Task, error) {
 	}
 
 	log.Println("Task with events retrieved successfully")
-	return task, nil
+	return dbTask.ToTask(), nil
 }
 
 func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
@@ -285,22 +267,22 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 
 	var tasks []Task
 	for rows.Next() {
-		var task Task
+		var dbTask DBTask
 		var eventsJSON []byte
 		var assigneeID sql.NullString
 		var dueDate sql.NullTime
 
 		err := rows.Scan(
-			&task.ID,
-			&task.CreatorID,
+			&dbTask.ID,
+			&dbTask.CreatorID,
 			&assigneeID,
-			&task.Title,
-			&task.Description,
-			&task.Status,
-			&task.Priority,
+			&dbTask.Title,
+			&dbTask.Description,
+			&dbTask.Status,
+			&dbTask.Priority,
 			&dueDate,
-			&task.CreatedAt,
-			&task.UpdatedAt,
+			&dbTask.CreatedAt,
+			&dbTask.UpdatedAt,
 			&eventsJSON,
 		)
 		if err != nil {
@@ -308,83 +290,95 @@ func (r *PostgresTaskRepository) GetByUserID(userID string) ([]Task, error) {
 		}
 
 		if assigneeID.Valid {
-			task.AssigneeID = &assigneeID.String
+			dbTask.AssigneeID = &assigneeID.String
 		}
 
 		if dueDate.Valid {
-			task.DueDate = dueDate.Time
+			dbTask.DueDate = dueDate.Time
 		}
 
 		if eventsJSON != nil {
-			if err := json.Unmarshal(eventsJSON, &task.Events); err != nil {
+			var dbEvents []DBTaskSystemEvent
+			if err := json.Unmarshal(eventsJSON, &dbEvents); err != nil {
 				return nil, err
+			}
+			for _, dbEvent := range dbEvents {
+				dbTask.Events = append(dbTask.Events, dbEvent.ToTaskSystemEvent())
 			}
 		}
 
-		tasks = append(tasks, task)
+		tasks = append(tasks, dbTask.ToTask())
 	}
 
 	return tasks, nil
 }
 
 func (r *PostgresTaskRepository) Create(task Task) (Task, error) {
+	dbTask := &DBTask{}
+	dbTask.FromTask(task)
+	dbTask.CreatedAt = time.Now()
+	dbTask.UpdatedAt = time.Now()
+
 	_, err := r.DB.Exec(`
 		INSERT INTO tasks (id, creator_id, assignee_id, title, description, status, priority, email_sent, in_app_sent, due_date, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`,
-		task.ID,
-		task.CreatorID,
-		task.AssigneeID,
-		task.Title,
-		task.Description,
-		task.Status,
-		task.Priority,
-		task.EmailSent,
-		task.InAppSent,
-		task.DueDate,
-		task.CreatedAt,
-		task.UpdatedAt,
+		dbTask.ID,
+		dbTask.CreatorID,
+		dbTask.AssigneeID,
+		dbTask.Title,
+		dbTask.Description,
+		dbTask.Status,
+		dbTask.Priority,
+		dbTask.EmailSent,
+		dbTask.InAppSent,
+		dbTask.DueDate,
+		dbTask.CreatedAt,
+		dbTask.UpdatedAt,
 	)
 
 	if err != nil {
 		return Task{}, err
 	}
 
-	return task, nil
+	return dbTask.ToTask(), nil
 }
 
 func (r *PostgresTaskRepository) Update(task Task) error {
-	task.UpdatedAt = time.Now()
+	dbTask := &DBTask{}
+	dbTask.FromTask(task)
+	dbTask.UpdatedAt = time.Now()
 	
 	_, err := r.DB.Exec(`
 		UPDATE tasks 
 		SET title = $1, description = $2, status = $3, priority = $4, email_sent = $5, in_app_sent = $6, due_date = $7, assignee_id = $8, updated_at = $9
 		WHERE id = $10
 	`,
-		task.Title,
-		task.Description,
-		task.Status,
-		task.Priority,
-		task.EmailSent,
-		task.InAppSent,
-		task.DueDate,
-		task.AssigneeID,
-		task.UpdatedAt,
-		task.ID,
+		dbTask.Title,
+		dbTask.Description,
+		dbTask.Status,
+		dbTask.Priority,
+		dbTask.EmailSent,
+		dbTask.InAppSent,
+		dbTask.DueDate,
+		dbTask.AssigneeID,
+		dbTask.UpdatedAt,
+		dbTask.ID,
 	)
 	log.Println("Task updated successfully")
 	return err
 }
 
 func (r *PostgresTaskRepository) Delete(id string) error {
+	now := time.Now()
 	_, err := r.DB.Exec(`
 		UPDATE tasks 
 		SET deleted = $1, deleted_at = $2, updated_at = $3
 		WHERE id = $4
 	`,
 		true,
-		time.Now(),
-		time.Now(),
+		now,
+		now,
 		id,
 	)
 	log.Println("Task soft deleted successfully")

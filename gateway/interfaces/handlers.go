@@ -7,10 +7,10 @@ type HealthHandler interface {
 }
 
 type AuthHandler interface {
-	Signin(w http.ResponseWriter, r *http.Request)
-	Signup(w http.ResponseWriter, r *http.Request)
+	SignIn(w http.ResponseWriter, r *http.Request)
+	SignUp(w http.ResponseWriter, r *http.Request)
+	SignOut(w http.ResponseWriter, r *http.Request)
 	RefreshToken(w http.ResponseWriter, r *http.Request)
-	Signout(w http.ResponseWriter, r *http.Request)
 	ForgotPassword(w http.ResponseWriter, r *http.Request)
 	ResetPassword(w http.ResponseWriter, r *http.Request)
 }

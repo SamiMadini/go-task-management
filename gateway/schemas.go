@@ -2,15 +2,9 @@ package main
 
 import (
 	"errors"
+	"sama/go-task-management/gateway/services/auth"
 	"time"
 )
-
-type UserResponse struct {
-	ID     string `json:"id"`
-	Handle string `json:"handle"`
-	Email  string `json:"email"`
-	Status string `json:"status"`
-}
 
 type GetTaskResponse struct {
 	ID          string                    `json:"id"`
@@ -21,8 +15,8 @@ type GetTaskResponse struct {
 	DueDate     time.Time                 `json:"due_date"`
 	CreatedAt   time.Time                 `json:"created_at"`
 	UpdatedAt   time.Time                 `json:"updated_at"`
-	Creator     UserResponse              `json:"creator"`
-	Assignee    *UserResponse             `json:"assignee,omitempty"`
+	Creator     auth.UserResponse         `json:"creator"`
+	Assignee    *auth.UserResponse        `json:"assignee,omitempty"`
 	Events      []TaskSystemEventResponse `json:"events"`
 }
 

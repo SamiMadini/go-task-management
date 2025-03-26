@@ -8,20 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// @Description InAppNotification model
-type InAppNotification struct {
-	ID          string      `json:"id"`
-	UserID      string      `json:"user_id"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	IsRead      bool        `json:"is_read"`
-	ReadAt      *time.Time  `json:"read_at,omitempty"`
-	Deleted     bool        `json:"deleted"`
-	DeletedAt   *time.Time  `json:"deleted_at,omitempty"`
-	UpdatedAt   time.Time   `json:"updated_at"`
-	CreatedAt   time.Time   `json:"created_at"`
-}
-
 type InAppNotificationRepositoryInterface interface {
 	GetAll() ([]InAppNotification, error)
 	GetByID(id string) (InAppNotification, error)
@@ -53,53 +39,53 @@ func (r *PostgresInAppNotificationRepository) GetAll() ([]InAppNotification, err
 
 	var inAppNotifications []InAppNotification
 	for rows.Next() {
-		var inAppNotification InAppNotification
+		var dbNotification DBInAppNotification
 		var readAt sql.NullTime
 
 		err := rows.Scan(
-			&inAppNotification.ID,
-			&inAppNotification.UserID,
-			&inAppNotification.Title,
-			&inAppNotification.Description,
-			&inAppNotification.IsRead,
+			&dbNotification.ID,
+			&dbNotification.UserID,
+			&dbNotification.Title,
+			&dbNotification.Description,
+			&dbNotification.IsRead,
 			&readAt,
-			&inAppNotification.CreatedAt,
-			&inAppNotification.UpdatedAt,
-			&inAppNotification.Deleted,
-			&inAppNotification.DeletedAt,
+			&dbNotification.CreatedAt,
+			&dbNotification.UpdatedAt,
+			&dbNotification.Deleted,
+			&dbNotification.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
 		if readAt.Valid {
-			inAppNotification.ReadAt = &readAt.Time
+			dbNotification.ReadAt = &readAt.Time
 		}
 
-		inAppNotifications = append(inAppNotifications, inAppNotification)
+		inAppNotifications = append(inAppNotifications, dbNotification.ToInAppNotification())
 	}
 
 	return inAppNotifications, nil
 }
 
 func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotification, error) {
-	var inAppNotification InAppNotification
+	var dbNotification DBInAppNotification
 	var readAt sql.NullTime
 
 	err := r.DB.QueryRow(`
 		SELECT id, user_id, title, description, is_read, read_at, created_at, updated_at, deleted, deleted_at
 		FROM in_app_notifications WHERE id = $1
 	`, id).Scan(
-		&inAppNotification.ID,
-		&inAppNotification.UserID,
-		&inAppNotification.Title,
-		&inAppNotification.Description,
-		&inAppNotification.IsRead,
+		&dbNotification.ID,
+		&dbNotification.UserID,
+		&dbNotification.Title,
+		&dbNotification.Description,
+		&dbNotification.IsRead,
 		&readAt,
-		&inAppNotification.CreatedAt,
-		&inAppNotification.UpdatedAt,
-		&inAppNotification.Deleted,
-		&inAppNotification.DeletedAt,
+		&dbNotification.CreatedAt,
+		&dbNotification.UpdatedAt,
+		&dbNotification.Deleted,
+		&dbNotification.DeletedAt,
 	)
 	
 	if err != nil {
@@ -107,10 +93,10 @@ func (r *PostgresInAppNotificationRepository) GetByID(id string) (InAppNotificat
 	}
 
 	if readAt.Valid {
-		inAppNotification.ReadAt = &readAt.Time
+		dbNotification.ReadAt = &readAt.Time
 	}
 
-	return inAppNotification, nil
+	return dbNotification.ToInAppNotification(), nil
 }
 
 func (r *PostgresInAppNotificationRepository) GetByUserID(userID string) ([]InAppNotification, error) {
@@ -127,63 +113,66 @@ func (r *PostgresInAppNotificationRepository) GetByUserID(userID string) ([]InAp
 
 	var inAppNotifications []InAppNotification
 	for rows.Next() {
-		var inAppNotification InAppNotification
+		var dbNotification DBInAppNotification
 		var readAt sql.NullTime
 
 		err := rows.Scan(
-			&inAppNotification.ID,
-			&inAppNotification.UserID,
-			&inAppNotification.Title,
-			&inAppNotification.Description,
-			&inAppNotification.IsRead,
+			&dbNotification.ID,
+			&dbNotification.UserID,
+			&dbNotification.Title,
+			&dbNotification.Description,
+			&dbNotification.IsRead,
 			&readAt,
-			&inAppNotification.CreatedAt,
-			&inAppNotification.UpdatedAt,
-			&inAppNotification.Deleted,
-			&inAppNotification.DeletedAt,
+			&dbNotification.CreatedAt,
+			&dbNotification.UpdatedAt,
+			&dbNotification.Deleted,
+			&dbNotification.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
 		if readAt.Valid {
-			inAppNotification.ReadAt = &readAt.Time
+			dbNotification.ReadAt = &readAt.Time
 		}
 
-		inAppNotifications = append(inAppNotifications, inAppNotification)
+		inAppNotifications = append(inAppNotifications, dbNotification.ToInAppNotification())
 	}
 
 	return inAppNotifications, nil
 }
 
-func (r *PostgresInAppNotificationRepository) Create(inAppNotification InAppNotification) (InAppNotification, error) {
-	if inAppNotification.ID == "" {
-		inAppNotification.ID = uuid.New().String()
+func (r *PostgresInAppNotificationRepository) Create(notification InAppNotification) (InAppNotification, error) {
+	dbNotification := &DBInAppNotification{}
+	dbNotification.FromInAppNotification(notification)
+
+	if dbNotification.ID == "" {
+		dbNotification.ID = uuid.New().String()
 	}
 
 	now := time.Now()
-	inAppNotification.CreatedAt = now
-	inAppNotification.UpdatedAt = now
+	dbNotification.CreatedAt = now
+	dbNotification.UpdatedAt = now
 
 	_, err := r.DB.Exec(`
 		INSERT INTO in_app_notifications (id, user_id, title, description, is_read, read_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`,
-		inAppNotification.ID,
-		inAppNotification.UserID,
-		inAppNotification.Title,
-		inAppNotification.Description,
-		inAppNotification.IsRead,
-		inAppNotification.ReadAt,
-		inAppNotification.CreatedAt,
-		inAppNotification.UpdatedAt,
+		dbNotification.ID,
+		dbNotification.UserID,
+		dbNotification.Title,
+		dbNotification.Description,
+		dbNotification.IsRead,
+		dbNotification.ReadAt,
+		dbNotification.CreatedAt,
+		dbNotification.UpdatedAt,
 	)
 
 	if err != nil {
 		return InAppNotification{}, err
 	}
 	
-	return inAppNotification, nil
+	return dbNotification.ToInAppNotification(), nil
 }
 
 func (r *PostgresInAppNotificationRepository) UpdateOnRead(id string, isRead bool) error {
@@ -210,20 +199,22 @@ func (r *PostgresInAppNotificationRepository) UpdateOnRead(id string, isRead boo
 	return err
 }
 
-func (r *PostgresInAppNotificationRepository) Update(inAppNotification InAppNotification) error {
-	inAppNotification.UpdatedAt = time.Now()
+func (r *PostgresInAppNotificationRepository) Update(notification InAppNotification) error {
+	dbNotification := &DBInAppNotification{}
+	dbNotification.FromInAppNotification(notification)
+	dbNotification.UpdatedAt = time.Now()
 	
 	_, err := r.DB.Exec(`
 		UPDATE in_app_notifications 
 		SET title = $1, description = $2, is_read = $3, read_at = $4, updated_at = $5
 		WHERE id = $6
 	`,
-		inAppNotification.Title,
-		inAppNotification.Description,
-		inAppNotification.IsRead,
-		inAppNotification.ReadAt,
-		inAppNotification.UpdatedAt,
-		inAppNotification.ID,
+		dbNotification.Title,
+		dbNotification.Description,
+		dbNotification.IsRead,
+		dbNotification.ReadAt,
+		dbNotification.UpdatedAt,
+		dbNotification.ID,
 	)
 	log.Println("InAppNotification updated successfully")
 	return err

@@ -2,11 +2,10 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
-	jwtv5 "github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type ContextKey string
@@ -15,7 +14,7 @@ const UserIDKey ContextKey = "user_id"
 
 type AuthClaims struct {
 	UserID string `json:"user_id"`
-	jwtv5.RegisteredClaims
+	jwt.RegisteredClaims
 }
 
 type AuthConfig struct {
@@ -31,7 +30,7 @@ func DefaultAuthConfig(jwtSecret string) AuthConfig {
 			"/api/_health",
 			"/api/v1/auth/signin",
 			"/api/v1/auth/signup",
-			"/api/v1/auth/refresh-token",
+			"/api/v1/auth/refresh",
 			"/api/v1/auth/forgot-password",
 			"/api/v1/auth/reset-password",
 		},
@@ -52,15 +51,43 @@ func AuthMiddleware(config AuthConfig) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := validateAuthHeader(r, config)
-			if err != nil {
-				fmt.Printf("AuthMiddleware: Authentication failed: %v\n", err)
-				http.Error(w, err.Error(), http.StatusUnauthorized)
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			bearerToken := strings.Split(authHeader, " ")
+			if len(bearerToken) != 2 || strings.ToLower(bearerToken[0]) != "bearer" {
+				http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := bearerToken[1]
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrSignatureInvalid
+				}
+				return []byte(config.JWTSecret), nil
+			})
+
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				userID, ok := claims["sub"].(string)
+				if !ok {
+					http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserIDKey, userID)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+				return
+			}
 		})
 	}
 }
@@ -79,38 +106,6 @@ func isPublicPath(path string, config AuthConfig) bool {
 	}
 
 	return false
-}
-
-func validateAuthHeader(r *http.Request, config AuthConfig) (*AuthClaims, error) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return nil, fmt.Errorf("JWT::Authorization header is required")
-	}
-
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return nil, fmt.Errorf("JWT::Invalid authorization header format")
-	}
-
-	token, err := ParseToken(parts[1], config.JWTSecret)
-	if err != nil {
-		fmt.Printf("validateAuthHeader: Token validation failed: %v\n", err)
-		return nil, fmt.Errorf("JWT::Invalid token")
-	}
-
-	claims, ok := token.Claims.(*AuthClaims)
-	if !ok || !token.Valid {
-		fmt.Printf("validateAuthHeader: Invalid token claims\n")
-		return nil, fmt.Errorf("JWT::Invalid token claims")
-	}
-
-	return claims, nil
-}
-
-func ParseToken(tokenString, secret string) (*jwtv5.Token, error) {
-	return jwtv5.ParseWithClaims(tokenString, &AuthClaims{}, func(token *jwtv5.Token) (interface{}, error) {
-		return []byte(secret), nil
-	})
 }
 
 func GetUserIDFromContext(r *http.Request) string {

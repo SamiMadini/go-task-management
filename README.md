@@ -39,7 +39,7 @@ The frontend is built with Next.js and Tailwind CSS, providing an intuitive user
 
   - POST /api/v1/auth/signin - Sign-In a user
   - POST /api/v1/auth/signup - Sign-Up a user
-  - POST /api/v1/auth/refresh-token - Refresh access token of the user
+  - POST /api/v1/auth/refresh - Refresh access token of the user
   - POST /api/v1/auth/signout - Sign-Out a user
   - POST /api/v1/auth/forgot-password - Start forgot password flow
   - POST /api/v1/auth/reset-password - End forgot password flow
